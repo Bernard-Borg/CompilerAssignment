@@ -494,8 +494,19 @@ public class Parser {
         assertToken(TokenType.COLON);
         assertToken(TokenType.PRIMITIVE);
         Type type = (Type) lookahead;
-        assertToken(TokenType.EQ);
-        ASTExpression expression = parseExpression();
+
+        ASTExpression expression = null;
+
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, expecting let or ';'");
+        }
+
+        if (isLookahead(TokenType.EQ)) {
+            lookaheadUsed = true;
+            expression = parseExpression();
+        }
 
         return new ASTVariableDeclaration(identifier, type, expression);
     }

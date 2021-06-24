@@ -141,7 +141,9 @@ public class XMLVisitor implements ASTVisitor {
         currentElement.setAttribute("identifier", astVariableDeclaration.identifier.identifier);
         currentElement.setAttribute("type", astVariableDeclaration.type.lexeme);
 
-        visit(astVariableDeclaration.expression);
+        if (astVariableDeclaration.expression != null) {
+            visit(astVariableDeclaration.expression);
+        }
 
         currentElement = parentElement;
     }

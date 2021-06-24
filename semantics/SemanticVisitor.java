@@ -222,11 +222,13 @@ public class SemanticVisitor implements ASTVisitor {
         if (variableSymbolTable.lookupType(astVariableDeclaration.identifier.identifier) != null) {
             throwException("Variable " + astVariableDeclaration.identifier.identifier + " has already been declared");
         } else {
-            visit(astVariableDeclaration.expression);
+            if (astVariableDeclaration.expression != null) {
+                visit(astVariableDeclaration.expression);
 
-            if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
-                if (!("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme))) {
-                    throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + astVariableDeclaration.type.lexeme);
+                if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
+                    if (!("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme))) {
+                        throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + astVariableDeclaration.type.lexeme);
+                    }
                 }
             }
 

@@ -3,6 +3,7 @@ package visitors;
 import lexer.*;
 import parser.*;
 import semantics.FunctionSymbolTable;
+import semantics.SemanticException;
 import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
@@ -21,12 +22,12 @@ public class InterpretationVisitor implements ASTVisitor {
         this.program = program;
     }
 
-    public void interpret() {
+    public void interpret() throws Exception {
         visit(program);
     }
 
     @Override
-    public void visit(ASTProgram astProgram) {
+    public void visit(ASTProgram astProgram) throws Exception {
         //Global scopes
         variableSymbolTable.push();
         functionSymbolTable.push();
@@ -37,7 +38,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTStatement statement) {
+    public void visit(ASTStatement statement) throws Exception {
         if (statement instanceof ASTAssignment) {
             visit ((ASTAssignment) statement);
         } else if (statement instanceof ASTBlock) {
@@ -60,7 +61,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTAssignment astAssignment) {
+    public void visit(ASTAssignment astAssignment) throws Exception {
         visit(astAssignment.expression);
 
         Type type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
@@ -74,7 +75,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTBlock astBlock) {
+    public void visit(ASTBlock astBlock) throws Exception {
         variableSymbolTable.push();
         functionSymbolTable.push();
 
@@ -93,7 +94,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTFor astFor) {
+    public void visit(ASTFor astFor) throws Exception {
         variableSymbolTable.push();
         //No need to do functionSymbolTable.push() since you can't declare a function in for
 
@@ -124,7 +125,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTIf astIf) {
+    public void visit(ASTIf astIf) throws Exception {
         visit(astIf.conditionExpression);
 
         if ((Boolean) expressionValue) {
@@ -143,13 +144,13 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTPrint astPrint) {
+    public void visit(ASTPrint astPrint) throws Exception {
         visit(astPrint.expression);
         System.out.println(expressionValue.toString());
     }
 
     @Override
-    public void visit(ASTReturn astReturn) {
+    public void visit(ASTReturn astReturn) throws Exception {
         visit(astReturn.expression);
 
         if ("float".equals(returnTypeOfCurrentFunction.lexeme) && "int".equals(expressionType.lexeme)) {
@@ -158,19 +159,26 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTVariableDeclaration astVariableDeclaration) {
-        visit(astVariableDeclaration.expression);
+    public void visit(ASTVariableDeclaration astVariableDeclaration) throws Exception {
+        Type variableType = astVariableDeclaration.type;
 
-        if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
-            expressionValue = ((Integer) expressionValue).floatValue();
-            expressionType = Type.FLOAT;
+        if (astVariableDeclaration.expression != null) {
+            visit(astVariableDeclaration.expression);
+
+            if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
+                expressionValue = ((Integer) expressionValue).floatValue();
+                expressionType = Type.FLOAT;
+                variableType = expressionType;
+            }
+        } else {
+            expressionValue = null;
         }
 
-        variableSymbolTable.insert(astVariableDeclaration.identifier.identifier, expressionType, expressionValue);
+        variableSymbolTable.insert(astVariableDeclaration.identifier.identifier, variableType, expressionValue);
     }
 
     @Override
-    public void visit(ASTWhile astWhile) {
+    public void visit(ASTWhile astWhile) throws Exception {
         while (true) {
             visit(astWhile.conditionExpression);
 
@@ -185,7 +193,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTExpression astExpression) {
+    public void visit(ASTExpression astExpression) throws Exception {
         if (astExpression instanceof ASTBinaryOperator) {
             visit((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
@@ -200,7 +208,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTBinaryOperator operator) {
+    public void visit(ASTBinaryOperator operator) throws Exception {
         visit(operator.expression1);
         String type1 = expressionType.lexeme;
         Object value1 = expressionValue;
@@ -414,7 +422,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTFunctionCall astFunctionCall) {
+    public void visit(ASTFunctionCall astFunctionCall) throws Exception {
         ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(astFunctionCall.identifier.identifier);
         variableSymbolTable.push();
 
@@ -444,11 +452,16 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTIdentifier astIdentifier) {
+    public void visit(ASTIdentifier astIdentifier) throws Exception {
         TypeValuePair variable = variableSymbolTable.lookup(astIdentifier.identifier);
 
         expressionType = variable.type;
-        expressionValue = variable.value;
+
+        if (variable.value != null) {
+            expressionValue = variable.value;
+        } else {
+            throw new Exception ("Variable " + astIdentifier.identifier + " might have not been initialised");
+        }
     }
 
     @Override
@@ -477,7 +490,7 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTUnary astUnary) {
+    public void visit(ASTUnary astUnary) throws Exception {
         visit(astUnary.expression);
 
         if (astUnary.unaryType == TokenType.SUB) {
