@@ -5,6 +5,9 @@ import lexer.Type;
 import parser.*;
 import visitors.ASTVisitor;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class SemanticVisitor implements ASTVisitor {
     private final VariableSymbolTable variableSymbolTable;
     private final FunctionSymbolTable functionSymbolTable;
@@ -301,84 +304,98 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    private boolean isPrimitive(String type) {
+        List<String> primitiveTypes = Arrays.asList("int", "float", "string", "bool", "char");
+        return primitiveTypes.contains(type);
+    }
+
+    private boolean checkSymmetrical(String typeLiteral, String typeLiteral2, String type1, String type2) {
+        return (typeLiteral.equals(type1) && typeLiteral2.equals(type2)) || (typeLiteral2.equals(type1) && typeLiteral.equals(type2));
+    }
+
+    private boolean checkAny(String typeLiteral, String type1, String type2) {
+        return typeLiteral.equals(type1) || typeLiteral.equals(type2);
+    }
+
+    private boolean checkBoth(String typeLiteral, String type1, String type2) {
+        return typeLiteral.equals(type1) && typeLiteral.equals(type2);
+    }
+
+    //Addition (ADD)
     private Type checkTypesAdd(String type1, String type2) throws SemanticException {
-        if ("bool".equals(type1) || "bool".equals(type2)) {
+        Type typeToReturn = null;
+
+        if (checkSymmetrical("int", "float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+        } else if (checkSymmetrical("int", "string", type1, type2)) {
+            typeToReturn = Type.STRING;
+        } else if (checkSymmetrical("string", "float", type1, type2)) {
+            typeToReturn = Type.STRING;
+        } else if (checkSymmetrical("char", "string", type1, type2)) {
+            typeToReturn = Type.STRING;
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+        } else if (checkBoth("string", type1, type2)) {
+            typeToReturn = Type.STRING;
+        } else {
             throwException("Operator '+' cannot be applied to " + type1 + " and " + type2);
         }
 
-        Type typeToReturn = null;
-
-        if (("int".equals(type1) && "float".equals(type2)) || ("float".equals(type1) && "int".equals(type2))) {
-            typeToReturn = Type.FLOAT;
-        } else if (("string".equals(type1) && "int".equals(type2)) || ("int".equals(type1) && "string".equals(type2))) {
-            typeToReturn = Type.STRING;
-        } else if (("string".equals(type1) && "float".equals(type2)) || ("float".equals(type1) && "string".equals(type2))) {
-            typeToReturn = Type.STRING;
-        } else if (type1.equals(type2)) {
-            switch (type1) {
-                case "int":
-                    typeToReturn = Type.INTEGER;
-                    break;
-                case "float":
-                    typeToReturn = Type.FLOAT;
-                    break;
-                case "string":
-                    typeToReturn = Type.STRING;
-                    break;
-                default:
-                    throwException("Error has occurred - type not recognised");
-            }
-        } else {
-            throwException("Error has occurred - type not recognised");
-        }
-
         return typeToReturn;
     }
 
+    //Other mathematical operators (MUL, SUB, DIV)
     private Type checkTypes1(TokenType operatorSymbol, String type1, String type2) throws SemanticException {
-        if ("bool".equals(type1) || "bool".equals(type2) || "string".equals(type1) || "string".equals(type2)) {
+        Type typeToReturn = null;
+
+        if (checkSymmetrical("int", "float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+        } else {
             throwException("Operator " + operatorSymbol.toString() + " cannot be applied to " + type1 + " and " + type2);
         }
 
-        Type typeToReturn = null;
-
-        if ("int".equals(type1) && "float".equals(type2) || "float".equals(type1) && "int".equals(type2)) {
-            typeToReturn = Type.FLOAT;
-        } else if (type1.equals(type2)) {
-            if ("int".equals(type1)) {
-                typeToReturn = Type.INTEGER;
-            } else if ("float".equals(type1)) {
-                typeToReturn = Type.FLOAT;
-            } else {
-                throwException("Error has occurred: type not recognised");
-            }
-        } else {
-            throwException("Error has occurred: type not recognised");
-        }
-
         return typeToReturn;
     }
 
+    //Equality operators (NE/CMP)
     private Type checkTypes2(String type1, String type2) throws SemanticException {
-        if ("int".equals(type1) && "float".equals(type2) || "float".equals(type1) && "int".equals(type2)) {
-            return Type.BOOL;
-        } else if (!type1.equals(type2)) {
-            throwException("Incomparable types " + type1 + " and " + type2);
+        if (isPrimitive(type1) && isPrimitive(type2)) {
+            if (checkSymmetrical("int", "float", type1, type2) || type1.equals(type2)) {
+                return Type.BOOL;
+            }
         }
 
+        throwException("Incomparable types " + type1 + " and " + type2);
         return Type.BOOL;
     }
 
+    //Comparison operators (GT/LT/GTE/LTE)
     private Type checkTypes3(String type1, String type2) throws SemanticException {
-        if ("bool".equals(type1) || "bool".equals(type2) || "string".equals(type1) || "string".equals(type2)) {
-            throwException("Incomparable types " + type1 + " and " + type2);
+        if (isPrimitive(type1) && isPrimitive(type2)) {
+            //Allow comparison between two characters
+            if (checkBoth("char", type1, type2)) {
+                return Type.BOOL;
+            }
+
+            //Disallow comparisons including booleans or one character and another type
+            if (!checkAny("bool", type1, type2) && !checkAny("char", type1, type2)) {
+                return Type.BOOL;
+            }
         }
 
+        throwException("Incomparable types " + type1 + " and " + type2);
         return Type.BOOL;
     }
 
+    //Logic operators (AND/OR)
     private Type checkTypes4(String type1, String type2) throws SemanticException {
-        if (!("bool".equals(type1) && "bool".equals(type2))) {
+        if (!checkBoth("bool", type1, type2)) {
             throwException("Bad operand types " + type1 + " and " + type2);
         }
 

@@ -7,6 +7,9 @@ import semantics.SemanticException;
 import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class InterpretationVisitor implements ASTVisitor {
     private final VariableSymbolTable variableSymbolTable;
     private final FunctionSymbolTable functionSymbolTable;
@@ -252,12 +255,24 @@ public class InterpretationVisitor implements ASTVisitor {
                 expressionValue = !(Boolean) expressionValue;
                 break;
             case OR:
-                expressionType = or(type1, type2, value1, value2);
+                expressionType = or(value1, value2);
                 break;
             case AND:
-                expressionType = and(type1, type2, value1, value2);
+                expressionType = and(value1, value2);
                 break;
         }
+    }
+
+    private boolean checkSymmetrical(String typeLiteral, String typeLiteral2, String type1, String type2) {
+        return (typeLiteral.equals(type1) && typeLiteral2.equals(type2)) || (typeLiteral2.equals(type1) && typeLiteral.equals(type2));
+    }
+
+    private boolean checkAny(String typeLiteral, String type1, String type2) {
+        return typeLiteral.equals(type1) || typeLiteral.equals(type2);
+    }
+
+    private boolean checkBoth(String typeLiteral, String type1, String type2) {
+        return typeLiteral.equals(type1) && typeLiteral.equals(type2);
     }
 
     private Type add(String type1, String type2, Object value1, Object value2) {
@@ -269,27 +284,21 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if ("float".equals(type1) && "int".equals(type2)) {
             typeToReturn = Type.FLOAT;
             expressionValue = (Float) value1 + ((Integer) value2).floatValue();
-        } else if (("string".equals(type1) && "int".equals(type2)) || ("int".equals(type1) && "string".equals(type2))) {
+        } else if (checkSymmetrical("int", "string", type1, type2)) {
             typeToReturn = Type.STRING;
             expressionValue = value1.toString() + value2.toString();
-        } else if (("string".equals(type1) && "float".equals(type2)) || ("float".equals(type1) && "string".equals(type2))) {
+        } else if (checkSymmetrical("float", "string", type1, type2)) {
             typeToReturn = Type.STRING;
             expressionValue = value1.toString() + value2.toString();
-        } else if (type1.equals(type2)) {
-            switch (type1) {
-                case "int":
-                    typeToReturn = Type.INTEGER;
-                    expressionValue = (Integer) value1 + (Integer) value2;
-                    break;
-                case "float":
-                    typeToReturn = Type.FLOAT;
-                    expressionValue = (Float) value1 + (Float) value2;
-                    break;
-                case "string":
-                    typeToReturn = Type.STRING;
-                    expressionValue = value1.toString() + value2.toString();
-                    break;
-            }
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+            expressionValue = (Integer) value1 + (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+            expressionValue = (Float) value1 + (Float) value2;
+        } else if (checkBoth("string", type1, type2)) {
+            typeToReturn = Type.STRING;
+            expressionValue = value1.toString() + value2.toString();
         }
 
         return typeToReturn;
@@ -304,14 +313,12 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if ("float".equals(type1) && "int".equals(type2)) {
             typeToReturn = Type.FLOAT;
             expressionValue = (Float) value1 - ((Integer) value2).floatValue();
-        } else if (type1.equals(type2)) {
-            if ("int".equals(type1)) {
-                typeToReturn = Type.INTEGER;
-                expressionValue = (Integer) value1 - (Integer) value2;
-            } else if ("float".equals(type1)) {
-                typeToReturn = Type.FLOAT;
-                expressionValue = (Float) value1 - (Float) value2;
-            }
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+            expressionValue = (Integer) value1 - (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+            expressionValue = (Float) value1 - (Float) value2;
         }
 
         return typeToReturn;
@@ -326,14 +333,12 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if ("float".equals(type1) && "int".equals(type2)) {
             typeToReturn = Type.FLOAT;
             expressionValue = (Float) value1 * ((Integer) value2).floatValue();
-        } else if (type1.equals(type2)) {
-            if ("int".equals(type1)) {
-                typeToReturn = Type.INTEGER;
-                expressionValue = (Integer) value1 * (Integer) value2;
-            } else if ("float".equals(type1)) {
-                typeToReturn = Type.FLOAT;
-                expressionValue = (Float) value1 * (Float) value2;
-            }
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+            expressionValue = (Integer) value1 * (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+            expressionValue = (Float) value1 * (Float) value2;
         }
 
         return typeToReturn;
@@ -348,14 +353,12 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if ("float".equals(type1) && "int".equals(type2)) {
             typeToReturn = Type.FLOAT;
             expressionValue = (Float) value1 / ((Integer) value2).floatValue();
-        } else if (type1.equals(type2)) {
-            if ("int".equals(type1)) {
-                typeToReturn = Type.INTEGER;
-                expressionValue = (Integer) value1 / (Integer) value2;
-            } else if ("float".equals(type1)) {
-                typeToReturn = Type.FLOAT;
-                expressionValue = (Float) value1 / (Float) value2;
-            }
+        } else if (checkBoth("int", type1, type2)) {
+            typeToReturn = Type.INTEGER;
+            expressionValue = (Integer) value1 / (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            typeToReturn = Type.FLOAT;
+            expressionValue = (Float) value1 / (Float) value2;
         }
 
         return typeToReturn;
@@ -374,50 +377,48 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     private Type greaterThan(String type1, String type2, Object value1, Object value2) {
-        if (!("bool".equals(type1) || "bool".equals(type2) || "string".equals(type1) || "string".equals(type2))) {
-            if ("int".equals(type1) && "float".equals(type2)){
-                expressionValue = ((Float) value2 < ((Integer) value1).floatValue());
-            } else if ("float".equals(type1) && "int".equals(type2)) {
-                expressionValue = ((Float) value1 > ((Integer) value2).floatValue());
-            } else if ("float".equals(type1) && "float".equals(type2)) {
-                expressionValue = (Float) value1 > (Float) value2;
-            } else if ("int".equals(type1) && "int".equals(type2)) {
-                expressionValue = (Integer) value1 > (Integer) value2;
-            }
+        if ("int".equals(type1) && "float".equals(type2)){
+            expressionValue = ((Float) value2 < ((Integer) value1).floatValue());
+        } else if ("float".equals(type1) && "int".equals(type2)) {
+            expressionValue = ((Float) value1 > ((Integer) value2).floatValue());
+        } else if (checkBoth("int", type1, type2)) {
+            expressionValue = (Integer) value1 > (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            expressionValue = (Float) value1 > (Float) value2;
+        } else if (checkAny("string", type1, type2)) {
+            expressionValue = value1.toString().compareTo(value2.toString()) > 0;
+        } else if (checkBoth("char", type1, type2)) {
+            expressionValue = value1.toString().charAt(0) > value2.toString().charAt(0);
         }
 
         return Type.BOOL;
     }
 
     private Type lessThan(String type1, String type2, Object value1, Object value2) {
-        if (!("bool".equals(type1) || "bool".equals(type2) || "string".equals(type1) || "string".equals(type2))) {
-            if ("int".equals(type1) && "float".equals(type2)){
-                expressionValue = (Float) value2 > ((Integer) value1).floatValue();
-            } else if ("float".equals(type1) && "int".equals(type2)) {
-                expressionValue = (Float) value1 < ((Integer) value2).floatValue();
-            } else if ("float".equals(type1) && "float".equals(type2)) {
-                expressionValue = (Float) value1 < (Float) value2;
-            } else if ("int".equals(type1) && "int".equals(type2)) {
-                expressionValue = (Integer) value1 < (Integer) value2;
-            }
+        if ("int".equals(type1) && "float".equals(type2)){
+            expressionValue = (Float) value2 > ((Integer) value1).floatValue();
+        } else if ("float".equals(type1) && "int".equals(type2)) {
+            expressionValue = (Float) value1 < ((Integer) value2).floatValue();
+        } else if (checkBoth("int", type1, type2)) {
+            expressionValue = (Integer) value1 < (Integer) value2;
+        } else if (checkBoth("float", type1, type2)) {
+            expressionValue = (Float) value1 < (Float) value2;
+        } else if (checkAny("string", type1, type2)) {
+            expressionValue = value1.toString().compareTo(value2.toString()) < 0;
+        } else if (checkBoth("char", type1, type2)) {
+            expressionValue = value1.toString().charAt(0) < value2.toString().charAt(0);
         }
 
         return Type.BOOL;
     }
 
-    private Type and(String type1, String type2, Object value1, Object value2) {
-        if ("bool".equals(type1) && "bool".equals(type2)) {
-            expressionValue = (Boolean) value1 && (Boolean) value2;
-        }
-
+    private Type and(Object value1, Object value2) {
+        expressionValue = (Boolean) value1 && (Boolean) value2;
         return Type.BOOL;
     }
 
-    private Type or(String type1, String type2, Object value1, Object value2) {
-        if ("bool".equals(type1) && "bool".equals(type2)) {
-            expressionValue = (Boolean) value1 || (Boolean) value2;
-        }
-
+    private Type or(Object value1, Object value2) {
+        expressionValue = (Boolean) value1 || (Boolean) value2;
         return Type.BOOL;
     }
 
