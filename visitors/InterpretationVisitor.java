@@ -413,11 +413,13 @@ public class InterpretationVisitor implements ASTVisitor {
     }
 
     private Type and(Object value1, Object value2) {
+        //Is it guaranteed to be boolean so no if statements needed
         expressionValue = (Boolean) value1 && (Boolean) value2;
         return Type.BOOL;
     }
 
     private Type or(Object value1, Object value2) {
+        //Is it guaranteed to be boolean so no if statements needed
         expressionValue = (Boolean) value1 || (Boolean) value2;
         return Type.BOOL;
     }

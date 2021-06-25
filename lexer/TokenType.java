@@ -1,5 +1,6 @@
 package lexer;
 
+//Class containing all the types of tokens
 public enum TokenType {
     ADD("'+'"),
     AND("'and'"),
@@ -38,6 +39,7 @@ public enum TokenType {
     TRUE("'true'"),
     WHILE("'while'");
 
+    //Name is used for error messages
     private final String name;
 
     TokenType(String name) {

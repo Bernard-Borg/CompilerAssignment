@@ -285,21 +285,21 @@ public class SemanticVisitor implements ASTVisitor {
             case SUB:
             case MUL:
             case DIV:
-                expressionType = checkTypes1(operator.operator.tokenType, type1, type2);
+                expressionType = checkTypesMath(operator.operator.tokenType, type1, type2);
                 break;
             case CMP:
             case NE:
-                expressionType = checkTypes2(type1, type2);
+                expressionType = checkTypesEquality(type1, type2);
                 break;
             case GT:
             case LT:
             case GTE:
             case LTE:
-                expressionType = checkTypes3(type1, type2);
+                expressionType = checkTypesComp(type1, type2);
                 break;
             case OR:
             case AND:
-                expressionType = checkTypes4(type1, type2);
+                expressionType = checkTypesLogic(type1, type2);
                 break;
         }
     }
@@ -347,7 +347,7 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     //Other mathematical operators (MUL, SUB, DIV)
-    private Type checkTypes1(TokenType operatorSymbol, String type1, String type2) throws SemanticException {
+    private Type checkTypesMath(TokenType operatorSymbol, String type1, String type2) throws SemanticException {
         Type typeToReturn = null;
 
         if (checkSymmetrical("int", "float", type1, type2)) {
@@ -364,7 +364,7 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     //Equality operators (NE/CMP)
-    private Type checkTypes2(String type1, String type2) throws SemanticException {
+    private Type checkTypesEquality(String type1, String type2) throws SemanticException {
         if (isPrimitive(type1) && isPrimitive(type2)) {
             if (checkSymmetrical("int", "float", type1, type2) || type1.equals(type2)) {
                 return Type.BOOL;
@@ -376,15 +376,21 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     //Comparison operators (GT/LT/GTE/LTE)
-    private Type checkTypes3(String type1, String type2) throws SemanticException {
+    private Type checkTypesComp(String type1, String type2) throws SemanticException {
         if (isPrimitive(type1) && isPrimitive(type2)) {
+            //Allow comparisons between two strings
+            if (checkBoth("string", type1, type2)) {
+                return Type.BOOL;
+            }
+
             //Allow comparison between two characters
             if (checkBoth("char", type1, type2)) {
                 return Type.BOOL;
             }
 
             //Disallow comparisons including booleans or one character and another type
-            if (!checkAny("bool", type1, type2) && !checkAny("char", type1, type2)) {
+            if (!checkAny("bool", type1, type2) && !checkAny("char", type1, type2)
+                    && !checkAny("string", type1, type2)) {
                 return Type.BOOL;
             }
         }
@@ -394,7 +400,7 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     //Logic operators (AND/OR)
-    private Type checkTypes4(String type1, String type2) throws SemanticException {
+    private Type checkTypesLogic(String type1, String type2) throws SemanticException {
         if (!checkBoth("bool", type1, type2)) {
             throwException("Bad operand types " + type1 + " and " + type2);
         }

@@ -1,5 +1,6 @@
 package lexer;
 
+//Class for float values
 public class Real extends Token {
     public float value;
 

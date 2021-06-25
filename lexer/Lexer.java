@@ -15,6 +15,7 @@ public class Lexer {
     public boolean EOF = false;
     private int state;
 
+    //Table containing DFA transitions
     private final int[][] transitionTable = {
         {INTEGER,IDENTIFIER,STRING1,ERROR,ADD,SUB,DIV,MUL,SYMBOL,IDENTIFIER,EQ1,LT,GT,NOT,SYMBOL,CHAR1,ERROR,ERROR},
         {STRING1,STRING1,STRING2,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,ERROR,STRING1,STRING1,ERROR},
@@ -46,6 +47,7 @@ public class Lexer {
         {ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR}
     };
 
+    //Initialises the lexer
     public Lexer(String programPath) throws FileNotFoundException {
         lineNumber = 1;
         characterInLine = 0;
@@ -57,6 +59,7 @@ public class Lexer {
         acceptingStates = new HashSet<>(getAcceptingStates());
         reservedWords = new HashMap<>();
 
+        //Reserves the keywords
         put(Word.OR);
         put(Word.AND);
         put(Word.TRUE);
@@ -76,24 +79,29 @@ public class Lexer {
         put(Type.CHAR);
     }
 
+    //Utility method to add strings to map of keywords
     private void put(Word word) {
         reservedWords.put(word.lexeme, word);
     }
 
+    //Gets the next character of the file
     public char getNextChar() throws IOException {
         int nextCharacter;
 
         nextCharacter = reader.read();
 
+        //If the next character is the end of file, set EOf flag to true
         if (nextCharacter == -1) {
             EOF = true;
             return ' ';
         }
 
+        //Newline adds 1 to the line number and resets the character in line counter
         if ((char)nextCharacter == '\n') {
             characterInLine = 0;
             lineNumber++;
         } else {
+            //Tabs are replaced with spaces
             if ((char) nextCharacter == '\t') {
                 nextCharacter = ' ';
             }
@@ -104,7 +112,9 @@ public class Lexer {
         return (char)nextCharacter;
     }
 
+    //Main table-driven lexer algorithm
     public String getNextLexeme() throws IOException {
+        //Initialisation phase
         int category;
         state = START;
 
@@ -115,10 +125,13 @@ public class Lexer {
         char nextCharacter;
         int nextValue;
 
+        //Scanning loop
         while(state != ERROR) {
+            //If the character buffer is empty, read next character from file, otherwise take from buffer
             if (characterBuffer.size() == 0) {
                 nextValue = getNextChar();
 
+                //If the end of file is reached, returns the string in the current buffer
                 if (EOF) {
                     if (acceptingStates.contains(state) || state == START || state == COMMENT1 || state == COMMENTM1 || state == COMMENTM2) {
                         return lexeme.toString();
@@ -132,6 +145,7 @@ public class Lexer {
                 nextCharacter = characterBuffer.removeLast();
             }
 
+            //Ignores spaces, newlines and carriage
             if (state == START && (nextCharacter == ' ' || nextCharacter == '\r' || nextCharacter == '\n')) {
                 continue;
             }
@@ -147,17 +161,20 @@ public class Lexer {
             state = transitionTable[state][category];
         }
 
+        //Rollback loop
         while (!acceptingStates.contains(state) && state != BAD) {
             state = stack.pop();
 
             if (state == BAD)
                 break;
 
+            //Removes last character and puts it in the buffer
             char removedCharacter = lexeme.charAt(lexeme.length() - 1);
             characterBuffer.addLast(removedCharacter);
             lexeme.deleteCharAt(lexeme.length() - 1);
         }
 
+        //Reporting the result
         if (acceptingStates.contains(state)) {
             return lexeme.toString();
         } else {
@@ -207,21 +224,25 @@ public class Lexer {
         }
     }
 
+    //Joins characters into tokens
     public Token getNextToken() throws Exception {
         String lexeme;
 
         do {
+            //Stops loop if end of file is reached
             if (EOF) {
                 return null;
             }
 
             lexeme = getNextLexeme();
 
+            //Reports errors
             if (lexeme.equals("$")) {
                 throw new Exception("Lexical error in line: " + lineNumber + ", character " + characterInLine);
             }
         } while (state == COMMENT2 || state == COMMENTM2 || state == COMMENTM3);
 
+        //Creates token from current state and lexeme
         switch(state) {
             case STRING2:
                 return new Word(lexeme, TokenType.STRING);

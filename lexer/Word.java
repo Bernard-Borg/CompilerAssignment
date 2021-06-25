@@ -1,5 +1,6 @@
 package lexer;
 
+//Class for identifiers, string literals and keywords
 public class Word extends Token {
     public static final Word OR = new Word("or", TokenType.OR);
     public static final Word AND = new Word("and", TokenType.AND);

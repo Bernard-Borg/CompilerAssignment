@@ -1,5 +1,6 @@
 package lexer;
 
+//Class for primitive types
 public class Type extends Word {
     public static final Type INTEGER = new Type("int", TokenType.PRIMITIVE);
     public static final Type FLOAT = new Type("float", TokenType.PRIMITIVE);

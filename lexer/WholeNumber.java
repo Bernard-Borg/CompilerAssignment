@@ -1,5 +1,6 @@
 package lexer;
 
+//Class for whole numbers (integers)
 public class WholeNumber extends Token {
     public int value;
 

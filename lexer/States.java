@@ -3,6 +3,7 @@ package lexer;
 import java.util.Arrays;
 import java.util.List;
 
+//Class containing all the DFA states
 class States{
     public final static int BAD = -2;
     public final static int ERROR = -1;
