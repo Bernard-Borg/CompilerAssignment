@@ -302,12 +302,8 @@ public class XMLVisitor implements ASTVisitor {
         currentElement = xmlDocument.createElement("ArrayLiteral");
         parentElement.appendChild(currentElement);
 
-        if (astArrayLiteral.arrayMembers != null) {
-            for (ASTExpression expression : astArrayLiteral.arrayMembers) {
-                visit(expression);
-            }
-        } else {
-            currentElement.setAttribute("empty", "");
+        for (ASTExpression expression : astArrayLiteral.arrayMembers) {
+            visit(expression);
         }
 
         currentElement = parentElement;

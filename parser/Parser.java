@@ -443,14 +443,54 @@ public class Parser {
     private ASTFunctionDeclaration parseFunctionDeclaration() throws Exception {
         Type returnType = (Type) lookahead;
         lookaheadUsed = true;
+
+        int dimensions = 0;
+        boolean isArray = false;
+
+        while (true) {
+            updateLookahead();
+
+            if (lookahead == null) {
+                throwException("Unexpected end of file, expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.OPENROUNDBRACKET);
+            }
+
+            if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+                lookaheadUsed = true;
+                assertToken(TokenType.CLOSESQUAREBRACKET);
+                isArray = true;
+                dimensions++;
+            } else {
+                break;
+            }
+        }
+
+        if (isArray) {
+            if (dimensions > 255) {
+                throwException("Array cannot have more than 255 dimensions");
+            }
+
+            //-1 since [] is added in Array class
+            dimensions--;
+
+            StringBuilder arrayDimensionString = new StringBuilder();
+
+            for (int i = 0; i < dimensions; i++) {
+                arrayDimensionString.append("[]");
+            }
+
+            returnType.lexeme += arrayDimensionString;
+            returnType = new Array(-1, returnType);
+        }
+
         assertToken(TokenType.IDENTIFIER);
         ASTIdentifier functionName = new ASTIdentifier((Word) lookahead);
+
         assertToken(TokenType.OPENROUNDBRACKET);
 
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, was expecting parameters or ')'");
+            throwException("Unexpected end of file, was expecting parameters or " + TokenType.CLOSEROUNDBRACKET);
         }
 
         List<ASTParameter> parameterList = null;
@@ -489,15 +529,54 @@ public class Parser {
     }
 
     private ASTParameter parseParameter() throws Exception {
-        assertToken(TokenType.IDENTIFIER);
+        Type parameterType;
+        boolean isArray = false;
+        int dimensions = 0;
 
+        assertToken(TokenType.IDENTIFIER);
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
+
+        while (true) {
+            updateLookahead();
+
+            if (lookahead == null) {
+                throwException("Unexpected end of file, expecting '[' or ':'");
+            }
+
+            if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+                lookaheadUsed = true;
+                assertToken(TokenType.CLOSESQUAREBRACKET);
+                isArray = true;
+                dimensions++;
+            } else {
+                break;
+            }
+        }
 
         assertToken(TokenType.COLON);
         assertToken(TokenType.PRIMITIVE);
 
-        Type type = (Type) lookahead;
-        return new ASTParameter(identifier, type);
+        if (isArray) {
+            if (dimensions > 255) {
+                throwException("Array cannot have more than 255 dimensions");
+            }
+
+            //-1 since [] is added in Array class
+            dimensions--;
+
+            StringBuilder arrayDimensionString = new StringBuilder();
+
+            for (int i = 0; i < dimensions; i++) {
+                arrayDimensionString.append("[]");
+            }
+
+            ((Type) lookahead).lexeme += arrayDimensionString;
+            parameterType = new Array(-1, (Type) lookahead);
+        } else {
+            parameterType = (Type) lookahead;
+        }
+
+        return new ASTParameter(identifier, parameterType);
     }
 
     private ASTAssignment parseAssignment() throws Exception {
