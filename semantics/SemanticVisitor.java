@@ -1,5 +1,6 @@
 package semantics;
 
+import lexer.Array;
 import lexer.TokenType;
 import lexer.Type;
 import parser.*;
@@ -253,15 +254,17 @@ public class SemanticVisitor implements ASTVisitor {
     @Override
     public void visit(ASTExpression astExpression) throws SemanticException {
         if (astExpression instanceof ASTBinaryOperator) {
-            visit((ASTBinaryOperator) astExpression);
+            visit ((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
-            visit((ASTFunctionCall) astExpression);
+            visit ((ASTFunctionCall) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
-            visit((ASTIdentifier) astExpression);
+            visit ((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
-            visit((ASTLiteral) astExpression);
+            visit ((ASTLiteral) astExpression);
         } else if (astExpression instanceof ASTUnary) {
-            visit((ASTUnary) astExpression);
+            visit ((ASTUnary) astExpression);
+        } else if (astExpression instanceof ASTArrayLiteral) {
+            visit ((ASTArrayLiteral) astExpression);
         } else {
             throwException("Unknown node while visiting expression");
         }
@@ -461,6 +464,30 @@ public class SemanticVisitor implements ASTVisitor {
         } else if ("char".equals(astLiteral.type)) {
             expressionType = Type.CHAR;
         }
+    }
+
+    @Override
+    public void visit(ASTArrayLiteral astArrayLiteral) throws SemanticException {
+        Array arrayType = null;
+        int size = astArrayLiteral.arrayMembers.size();
+
+        for(ASTExpression expression : astArrayLiteral.arrayMembers) {
+            visit(expression);
+
+            if (arrayType != null) {
+                //Checks whether each value in the array has the same type as the first element
+                if (!arrayType.arrayType.lexeme.equals(expressionType.lexeme)) {
+                    //Integers inserted in a float array (first element is float) are accepted
+                    if (!("float".equals(arrayType.arrayType.lexeme) && "int".equals(expressionType.lexeme))) {
+                        throwException("Array values must all be of the same type");
+                    }
+                }
+            } else {
+                arrayType = new Array (size, expressionType);
+            }
+        }
+
+        expressionType = arrayType;
     }
 
     @Override

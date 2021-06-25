@@ -244,6 +244,9 @@ public class Parser {
             case FALSE:
             case CHAR:
                 return new ASTLiteral(lookahead);
+            case OPENCURLYBRACKET:
+                lookaheadUsed = false;
+                return parseArrayLiteral();
             case OPENROUNDBRACKET:
                 lookaheadUsed = false;
                 return parseSubExpression();
@@ -279,14 +282,15 @@ public class Parser {
         if (isLookahead(TokenType.CLOSEROUNDBRACKET)) {
             lookaheadUsed = true;
         } else {
-            parameters = parseActualParameters();
+            parameters = parseExpressionList();
             assertToken(TokenType.CLOSEROUNDBRACKET);
         }
 
         return new ASTFunctionCall(identifier, parameters);
     }
 
-    private List<ASTExpression> parseActualParameters() throws Exception {
+    //Previously was parseActualParameters, changed name so that array literal can also use it
+    private List<ASTExpression> parseExpressionList() throws Exception {
         List<ASTExpression> parameterList = new ArrayList<>();
         ASTExpression parameter = parseExpression();
         parameterList.add(parameter);
@@ -307,6 +311,24 @@ public class Parser {
         }
 
         return parameterList;
+    }
+
+    private ASTArrayLiteral parseArrayLiteral() throws Exception {
+        assertToken(TokenType.OPENCURLYBRACKET);
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, was expecting expression or '}'");
+        }
+
+        if (isLookahead(TokenType.CLOSECURLYBRACKET)) {
+            throwException("Array literal cannot be empty");
+            return null;
+        } else {
+            List<ASTExpression> expressions = parseExpressionList();
+            assertToken(TokenType.CLOSECURLYBRACKET);
+            return new ASTArrayLiteral(expressions);
+        }
     }
 
     private ASTExpression parseSubExpression() throws Exception {

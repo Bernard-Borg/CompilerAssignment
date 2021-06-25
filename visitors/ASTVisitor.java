@@ -19,5 +19,6 @@ public interface ASTVisitor {
     void visit(ASTFunctionCall astFunctionCall) throws Exception;
     void visit(ASTIdentifier astIdentifier) throws Exception;
     void visit(ASTLiteral astLiteral) throws Exception;
+    void visit(ASTArrayLiteral astArrayLiteral) throws Exception;
     void visit(ASTUnary astUnary) throws Exception;
 }

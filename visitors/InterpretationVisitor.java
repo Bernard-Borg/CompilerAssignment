@@ -3,11 +3,10 @@ package visitors;
 import lexer.*;
 import parser.*;
 import semantics.FunctionSymbolTable;
-import semantics.SemanticException;
 import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 public class InterpretationVisitor implements ASTVisitor {
@@ -207,6 +206,8 @@ public class InterpretationVisitor implements ASTVisitor {
             visit((ASTLiteral) astExpression);
         } else if (astExpression instanceof ASTUnary) {
             visit((ASTUnary) astExpression);
+        } else if (astExpression instanceof ASTArrayLiteral) {
+            visit ((ASTArrayLiteral) astExpression);
         }
     }
 
@@ -490,6 +491,29 @@ public class InterpretationVisitor implements ASTVisitor {
             expressionType = Type.CHAR;
             expressionValue = ((Word) astLiteral.token).lexeme;
         }
+    }
+
+    @Override
+    public void visit(ASTArrayLiteral astArrayLiteral) throws Exception {
+        int size = astArrayLiteral.arrayMembers.size();
+        visit(astArrayLiteral.arrayMembers.get(0));
+        Array arrayType = new Array(size, expressionType);
+
+        List<Object> arrayValues = new ArrayList<>();
+
+        for(ASTExpression expression : astArrayLiteral.arrayMembers) {
+            visit(expression);
+
+            //Converts integers to floats in a float array literal
+            if ("float".equals(arrayType.arrayType.lexeme) && "int".equals(expressionType.lexeme)) {
+                expressionValue = ((Integer) expressionValue).floatValue();
+            }
+
+            arrayValues.add(expressionValue);
+        }
+
+        expressionType = arrayType;
+        expressionValue = arrayValues;
     }
 
     @Override

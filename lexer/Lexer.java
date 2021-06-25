@@ -201,7 +201,7 @@ public class Lexer {
             return 6;
         } else if (character == '*') {
             return 7;
-        } else if (stringCharacter.matches("[}{)(:,;]")) {
+        } else if (stringCharacter.matches("[}{)(\\]\\[:,;]")) {
             return 8;
         } else if (character == '_') {
             return 9;
@@ -258,6 +258,8 @@ public class Lexer {
                     case "(": return new Token(TokenType.OPENROUNDBRACKET);
                     case "}": return new Token(TokenType.CLOSECURLYBRACKET);
                     case ")": return new Token(TokenType.CLOSEROUNDBRACKET);
+                    case "[": return new Token(TokenType.OPENSQUAREBRACKET);
+                    case "]": return new Token(TokenType.CLOSESQUAREBRACKET);
                     case ":": return new Token(TokenType.COLON);
                     case ";": return new Token(TokenType.SEMICOLON);
                     case ",": return new Token(TokenType.COMMA);

@@ -216,6 +216,8 @@ public class XMLVisitor implements ASTVisitor {
             visit ((ASTFunctionCall) astExpression);
         } else if (astExpression instanceof ASTUnary) {
             visit ((ASTUnary) astExpression);
+        } else if (astExpression instanceof ASTArrayLiteral) {
+            visit ((ASTArrayLiteral) astExpression);
         } else {
             System.err.println("Unknown node while visiting expression");
         }
@@ -291,6 +293,23 @@ public class XMLVisitor implements ASTVisitor {
 
         currentElement.setAttribute("type", astLiteral.type);
         currentElement.setAttribute("value", value);
+        currentElement = parentElement;
+    }
+
+    @Override
+    public void visit(ASTArrayLiteral astArrayLiteral) {
+        Element parentElement = currentElement;
+        currentElement = xmlDocument.createElement("ArrayLiteral");
+        parentElement.appendChild(currentElement);
+
+        if (astArrayLiteral.arrayMembers != null) {
+            for (ASTExpression expression : astArrayLiteral.arrayMembers) {
+                visit(expression);
+            }
+        } else {
+            currentElement.setAttribute("empty", "");
+        }
+
         currentElement = parentElement;
     }
 
