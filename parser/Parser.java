@@ -259,6 +259,8 @@ public class Parser {
 
                 if (isLookahead(TokenType.OPENROUNDBRACKET)) {
                     return parseFunctionCall(lookaheadTemp);
+                } else if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+                    return parseArrayIndexIdentifier(new ASTIdentifier((Word) lookaheadTemp));
                 } else {
                     return new ASTIdentifier((Word) lookaheadTemp);
                 }
@@ -266,6 +268,16 @@ public class Parser {
                 throwException("Unexpected " + lookahead.tokenType + ", expecting expression");
                 return null;
         }
+    }
+
+    private ASTArrayIndexIdentifier parseArrayIndexIdentifier(ASTIdentifier identifier) throws Exception {
+        ASTExpression index;
+
+        assertToken(TokenType.OPENSQUAREBRACKET);
+        index = parseExpression();
+        assertToken(TokenType.CLOSESQUAREBRACKET);
+
+        return new ASTArrayIndexIdentifier(identifier, index);
     }
 
     private ASTFunctionCall parseFunctionCall(Token identifierToken) throws Exception {
@@ -276,7 +288,7 @@ public class Parser {
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, was expecting a parameter or ')'");
+            throwException("Unexpected end of file, was expecting a parameter or " + TokenType.CLOSEROUNDBRACKET);
         }
 
         if (isLookahead(TokenType.CLOSEROUNDBRACKET)) {
@@ -299,7 +311,7 @@ public class Parser {
             updateLookahead();
 
             if (lookahead == null) {
-                throwException("Unexpected end of file, was expecting ','");
+                throwException("Unexpected end of file, was expecting " + TokenType.COMMA);
             }
 
             if (isLookahead(TokenType.COMMA)) {
@@ -318,7 +330,7 @@ public class Parser {
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, was expecting expression or '}'");
+            throwException("Unexpected end of file, was expecting expression or " + TokenType.CLOSECURLYBRACKET);
         }
 
         if (isLookahead(TokenType.CLOSECURLYBRACKET)) {
@@ -372,7 +384,7 @@ public class Parser {
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, expecting let or ';'");
+            throwException("Unexpected end of file, expecting " + TokenType.LET + " or " + TokenType.SEMICOLON);
         }
 
         if (isLookahead(TokenType.LET)) {
@@ -386,7 +398,7 @@ public class Parser {
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, expecting identifier or ')'");
+            throwException("Unexpected end of file, expecting " + TokenType.IDENTIFIER + " or " + TokenType.CLOSEROUNDBRACKET);
         }
 
         if (isLookahead(TokenType.IDENTIFIER)) {
@@ -419,7 +431,7 @@ public class Parser {
             updateLookahead();
 
             if (lookahead == null) {
-                throwException("Unexpected end of file, was expecting '}'");
+                throwException("Unexpected end of file, was expecting " + TokenType.CLOSECURLYBRACKET);
             }
 
             if (isLookahead(TokenType.CLOSECURLYBRACKET)) {
@@ -443,44 +455,6 @@ public class Parser {
     private ASTFunctionDeclaration parseFunctionDeclaration() throws Exception {
         Type returnType = (Type) lookahead;
         lookaheadUsed = true;
-
-        int dimensions = 0;
-        boolean isArray = false;
-
-        while (true) {
-            updateLookahead();
-
-            if (lookahead == null) {
-                throwException("Unexpected end of file, expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.OPENROUNDBRACKET);
-            }
-
-            if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
-                lookaheadUsed = true;
-                assertToken(TokenType.CLOSESQUAREBRACKET);
-                isArray = true;
-                dimensions++;
-            } else {
-                break;
-            }
-        }
-
-        if (isArray) {
-            if (dimensions > 255) {
-                throwException("Array cannot have more than 255 dimensions");
-            }
-
-            //-1 since [] is added in Array class
-            dimensions--;
-
-            StringBuilder arrayDimensionString = new StringBuilder();
-
-            for (int i = 0; i < dimensions; i++) {
-                arrayDimensionString.append("[]");
-            }
-
-            returnType.lexeme += arrayDimensionString;
-            returnType = new Array(-1, returnType);
-        }
 
         assertToken(TokenType.IDENTIFIER);
         ASTIdentifier functionName = new ASTIdentifier((Word) lookahead);
@@ -514,7 +488,7 @@ public class Parser {
             updateLookahead();
 
             if (lookahead == null) {
-                throwException("Unexpected end of file, was expecting another parameter or ','");
+                throwException("Unexpected end of file, was expecting " + TokenType.COMMA);
             }
 
             if (isLookahead(TokenType.COMMA)) {
@@ -531,46 +505,26 @@ public class Parser {
     private ASTParameter parseParameter() throws Exception {
         Type parameterType;
         boolean isArray = false;
-        int dimensions = 0;
 
         assertToken(TokenType.IDENTIFIER);
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
 
-        while (true) {
-            updateLookahead();
+        updateLookahead();
 
-            if (lookahead == null) {
-                throwException("Unexpected end of file, expecting '[' or ':'");
-            }
+        if (lookahead == null) {
+            throwException("Unexpected end of file, expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.COLON);
+        }
 
-            if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
-                lookaheadUsed = true;
-                assertToken(TokenType.CLOSESQUAREBRACKET);
-                isArray = true;
-                dimensions++;
-            } else {
-                break;
-            }
+        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+            lookaheadUsed = true;
+            assertToken(TokenType.CLOSESQUAREBRACKET);
+            isArray = true;
         }
 
         assertToken(TokenType.COLON);
         assertToken(TokenType.PRIMITIVE);
 
         if (isArray) {
-            if (dimensions > 255) {
-                throwException("Array cannot have more than 255 dimensions");
-            }
-
-            //-1 since [] is added in Array class
-            dimensions--;
-
-            StringBuilder arrayDimensionString = new StringBuilder();
-
-            for (int i = 0; i < dimensions; i++) {
-                arrayDimensionString.append("[]");
-            }
-
-            ((Type) lookahead).lexeme += arrayDimensionString;
             parameterType = new Array(-1, (Type) lookahead);
         } else {
             parameterType = (Type) lookahead;
@@ -582,6 +536,17 @@ public class Parser {
     private ASTAssignment parseAssignment() throws Exception {
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
         lookaheadUsed = true;
+
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.EQ);
+        }
+
+        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+            identifier = parseArrayIndexIdentifier(identifier);
+        }
+
         assertToken(TokenType.EQ);
         ASTExpression expression = parseExpression();
 
@@ -591,17 +556,38 @@ public class Parser {
     private ASTVariableDeclaration parseVariableDeclaration() throws Exception {
         assertToken(TokenType.LET);
         assertToken(TokenType.IDENTIFIER);
+
+        boolean isArray = false;
+        Type type;
+
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
+
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.COLON);
+        }
+
+        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+            identifier = parseArrayIndexIdentifier(identifier);
+            isArray = true;
+        }
+
         assertToken(TokenType.COLON);
         assertToken(TokenType.PRIMITIVE);
-        Type type = (Type) lookahead;
+
+        if (isArray) {
+            type = new Array(-1, (Type) lookahead);
+        } else {
+            type = (Type) lookahead;
+        }
 
         ASTExpression expression = null;
 
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, expecting let or ';'");
+            throwException("Unexpected end of file, expecting " + TokenType.LET + " or " + TokenType.SEMICOLON);
         }
 
         if (isLookahead(TokenType.EQ)) {

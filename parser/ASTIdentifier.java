@@ -6,6 +6,10 @@ import visitors.ASTVisitor;
 public class ASTIdentifier extends ASTExpression {
     public String identifier;
 
+    public ASTIdentifier(ASTIdentifier identifier) {
+        this.identifier = identifier.identifier;
+    }
+
     public ASTIdentifier(Word lookaheadTemp) {
         this.identifier = lookaheadTemp.lexeme;
     }

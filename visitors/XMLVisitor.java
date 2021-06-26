@@ -208,6 +208,8 @@ public class XMLVisitor implements ASTVisitor {
     public void visit(ASTExpression astExpression) {
         if (astExpression instanceof ASTBinaryOperator) {
             visit ((ASTBinaryOperator) astExpression);
+        } else if (astExpression instanceof ASTArrayIndexIdentifier) {
+            visit ((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
             visit ((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
@@ -258,6 +260,23 @@ public class XMLVisitor implements ASTVisitor {
         currentElement = xmlDocument.createElement("Identifier");
         currentElement.setAttribute("name", astIdentifier.identifier);
         parentElement.appendChild(currentElement);
+
+        currentElement = parentElement;
+    }
+
+    @Override
+    public void visit(ASTArrayIndexIdentifier astArrayIndexIdentifier) {
+        Element parentElement = currentElement;
+        currentElement = xmlDocument.createElement("ArrayIndexIdentifier");
+        currentElement.setAttribute("name", astArrayIndexIdentifier.identifier);
+        parentElement.appendChild(currentElement);
+
+        Element indexElement = xmlDocument.createElement("Index");
+        currentElement.appendChild(indexElement);
+
+        currentElement = indexElement;
+
+        visit(astArrayIndexIdentifier.index);
 
         currentElement = parentElement;
     }

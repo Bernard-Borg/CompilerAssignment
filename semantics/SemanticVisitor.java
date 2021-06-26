@@ -1,5 +1,6 @@
 package semantics;
 
+import com.sun.org.apache.bcel.internal.generic.AASTORE;
 import lexer.Array;
 import lexer.TokenType;
 import lexer.Type;
@@ -72,7 +73,14 @@ public class SemanticVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTAssignment astAssignment) throws SemanticException {
-        Type type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
+        Type type;
+
+        if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
+            visit((ASTArrayIndexIdentifier) astAssignment.identifier);
+            type = expressionType;
+        } else {
+            type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
+        }
 
         if (type != null) {
             visit(astAssignment.expression);
@@ -221,6 +229,15 @@ public class SemanticVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTVariableDeclaration astVariableDeclaration) throws SemanticException {
+        //If declaring an array, check whether it's size is of type integer
+        if (astVariableDeclaration.identifier instanceof ASTArrayIndexIdentifier) {
+            visit(((ASTArrayIndexIdentifier) astVariableDeclaration.identifier).index);
+
+            if (!"int".equals(expressionType.lexeme)) {
+                throwException("Array size can only be of type int");
+            }
+        }
+
         Type declaredType = astVariableDeclaration.type;
 
         if (variableSymbolTable.lookupType(astVariableDeclaration.identifier.identifier) != null) {
@@ -257,6 +274,8 @@ public class SemanticVisitor implements ASTVisitor {
             visit ((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
             visit ((ASTFunctionCall) astExpression);
+        } else if (astExpression instanceof ASTArrayIndexIdentifier) {
+            visit ((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
             visit ((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
@@ -452,6 +471,29 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     @Override
+    public void visit(ASTArrayIndexIdentifier astArrayIndexIdentifier) throws SemanticException {
+        visit(astArrayIndexIdentifier.index);
+
+        if (!"int".equals(expressionType.lexeme)) {
+            throwException("Array index must be of type int");
+        }
+
+        Type identifierType = variableSymbolTable.lookupType(astArrayIndexIdentifier.identifier);
+
+        //Checks whether array is in symbol table
+        if (identifierType == null) {
+            throwException("Could not resolve identifier " + astArrayIndexIdentifier.identifier);
+        }
+
+        //Checks whether the variable is indeed an array
+        if (!(identifierType instanceof Array)) {
+            throwException("Array type expected, got " + identifierType.lexeme);
+        } else {
+            expressionType = ((Array) identifierType).arrayType;
+        }
+    }
+
+    @Override
     public void visit(ASTLiteral astLiteral) {
         if ("bool".equals(astLiteral.type)) {
             expressionType = Type.BOOL;
@@ -483,6 +525,10 @@ public class SemanticVisitor implements ASTVisitor {
                     }
                 }
             } else {
+                if (expressionType instanceof Array) {
+                    throwException ("Multidimensional arrays are not supported");
+                }
+
                 arrayType = new Array (size, expressionType);
             }
         }

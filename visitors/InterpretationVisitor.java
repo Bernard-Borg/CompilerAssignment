@@ -7,6 +7,7 @@ import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class InterpretationVisitor implements ASTVisitor {
@@ -64,16 +65,39 @@ public class InterpretationVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTAssignment astAssignment) throws Exception {
-        visit(astAssignment.expression);
+        if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
+            //Handles whenever changing specific array elements
+            TypeValuePair typeValuePair = variableSymbolTable.lookup(astAssignment.identifier.identifier);
 
-        Type type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
+            if (typeValuePair.value == null) {
+                throw new Exception ("Array " + astAssignment.identifier.identifier + " has not been initialised");
+            } else {
+                visit(((ASTArrayIndexIdentifier) astAssignment.identifier).index);
+                int index = (Integer) expressionValue;
 
-        if ("int".equals(expressionType.lexeme) && "float".equals(type.lexeme)) {
-            expressionValue = ((Integer) expressionValue).floatValue();
-            expressionType = Type.FLOAT;
+                visit(astAssignment.expression);
+
+                ((Object[]) typeValuePair.value)[index] = expressionValue;
+                variableSymbolTable.changeValue(astAssignment.identifier.identifier, typeValuePair.value);
+            }
+        } else {
+            visit(astAssignment.expression);
+
+            Type type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
+
+            if (type instanceof Array) {
+                if (!(((Array) type).size == ((Array) expressionType).size)) {
+                    throw new Exception ("Arrays need to be of equal sizes");
+                }
+            }
+
+            if ("int".equals(expressionType.lexeme) && "float".equals(type.lexeme)) {
+                expressionValue = ((Integer) expressionValue).floatValue();
+                expressionType = Type.FLOAT;
+            }
+
+            variableSymbolTable.changeValue(astAssignment.identifier.identifier, expressionValue);
         }
-
-        variableSymbolTable.changeValue(astAssignment.identifier.identifier, expressionValue);
     }
 
     @Override
@@ -148,7 +172,16 @@ public class InterpretationVisitor implements ASTVisitor {
     @Override
     public void visit(ASTPrint astPrint) throws Exception {
         visit(astPrint.expression);
-        System.out.println(expressionValue.toString());
+
+        if (expressionType instanceof Array) {
+            if (Arrays.asList((Object[]) expressionValue).contains(null)) {
+                throw new Exception ("Some array elements are undefined");
+            }
+
+            System.out.println(Arrays.toString((Object[]) expressionValue));
+        } else {
+            System.out.println(expressionValue.toString());
+        }
     }
 
     @Override
@@ -162,21 +195,44 @@ public class InterpretationVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTVariableDeclaration astVariableDeclaration) throws Exception {
-        Type variableType = astVariableDeclaration.type;
+        if (astVariableDeclaration.identifier instanceof ASTArrayIndexIdentifier) {
+            visit(((ASTArrayIndexIdentifier) astVariableDeclaration.identifier).index);
 
-        if (astVariableDeclaration.expression != null) {
-            visit(astVariableDeclaration.expression);
+            int arraySize = (Integer) expressionValue;
 
-            if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
-                expressionValue = ((Integer) expressionValue).floatValue();
-                expressionType = Type.FLOAT;
-                variableType = expressionType;
+            if (arraySize < 0) {
+                throw new NegativeArraySizeException();
             }
-        } else {
-            expressionValue = null;
-        }
 
-        variableSymbolTable.insert(astVariableDeclaration.identifier.identifier, variableType, expressionValue);
+            if (astVariableDeclaration.expression != null) {
+                visit(astVariableDeclaration.expression);
+
+                if (!(arraySize == ((Object[]) expressionValue).length)) {
+                    throw new Exception ("Arrays need to be of equal sizes");
+                }
+            } else {
+                expressionValue = new Object[arraySize];
+            }
+
+            variableSymbolTable.insert(astVariableDeclaration.identifier.identifier,
+                    new Array(arraySize, ((Array) astVariableDeclaration.type).arrayType), expressionValue);
+        } else {
+            Type variableType = astVariableDeclaration.type;
+
+            if (astVariableDeclaration.expression != null) {
+                visit(astVariableDeclaration.expression);
+
+                if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
+                    expressionValue = ((Integer) expressionValue).floatValue();
+                    expressionType = Type.FLOAT;
+                    variableType = expressionType;
+                }
+            } else {
+                expressionValue = null;
+            }
+
+            variableSymbolTable.insert(astVariableDeclaration.identifier.identifier, variableType, expressionValue);
+        }
     }
 
     @Override
@@ -200,6 +256,8 @@ public class InterpretationVisitor implements ASTVisitor {
             visit((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
             visit((ASTFunctionCall) astExpression);
+        } else if (astExpression instanceof ASTArrayIndexIdentifier) {
+            visit ((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
             visit((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
@@ -464,7 +522,26 @@ public class InterpretationVisitor implements ASTVisitor {
         if (variable.value != null) {
             expressionValue = variable.value;
         } else {
-            throw new Exception ("Variable " + astIdentifier.identifier + " might have not been initialised");
+            throw new Exception ("Variable " + astIdentifier.identifier + " has not been initialised");
+        }
+    }
+
+    @Override
+    public void visit(ASTArrayIndexIdentifier astArrayIndexIdentifier) throws Exception {
+        visit(astArrayIndexIdentifier.index);
+        int index = (Integer) expressionValue;
+
+        TypeValuePair variable = variableSymbolTable.lookup(astArrayIndexIdentifier.identifier);
+        expressionType = ((Array) variable.type).arrayType;
+
+        if (variable.value != null) {
+            expressionValue = ((Object[]) variable.value)[index];
+
+            if (expressionValue == null) {
+                throw new Exception ("Array " + astArrayIndexIdentifier.identifier + " index " + index + " is undefined");
+            }
+        } else {
+            throw new Exception ("Array " + astArrayIndexIdentifier.identifier + " has not been initialised");
         }
     }
 
@@ -513,7 +590,7 @@ public class InterpretationVisitor implements ASTVisitor {
         }
 
         expressionType = arrayType;
-        expressionValue = arrayValues;
+        expressionValue = arrayValues.toArray();
     }
 
     @Override
@@ -523,11 +600,14 @@ public class InterpretationVisitor implements ASTVisitor {
         if (astUnary.unaryType == TokenType.SUB) {
             if ("float".equals(expressionType.lexeme)) {
                 expressionValue = -Float.parseFloat(expressionValue.toString());
+                expressionType = Type.FLOAT;
             } else {
                 expressionValue = -Integer.parseInt(expressionValue.toString());
+                expressionType = Type.INTEGER;
             }
         } else {
             expressionValue = !(Boolean) expressionValue;
+            expressionType = Type.BOOL;
         }
     }
 }
