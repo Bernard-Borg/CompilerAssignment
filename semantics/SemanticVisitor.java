@@ -171,7 +171,7 @@ public class SemanticVisitor implements ASTVisitor {
             throwException("Cannot nest functions");
         }
 
-        if (functionSymbolTable.lookup(astFunctionDeclaration.functionName.identifier) != null) {
+        if (functionSymbolTable.lookup(functionSymbolTable.generateIdentifier(astFunctionDeclaration)) != null) {
             throwException("Function " + astFunctionDeclaration.functionName.identifier + " has already been defined");
         }
 
@@ -190,7 +190,7 @@ public class SemanticVisitor implements ASTVisitor {
             variableSymbolTable.insert(parameter.identifier.identifier, parameter.type);
         }
 
-        identifierOfCurrentFunction = astFunctionDeclaration.functionName.identifier;
+        identifierOfCurrentFunction = functionSymbolTable.generateIdentifier(astFunctionDeclaration);
         returnTypeOfCurrentFunction = astFunctionDeclaration.returnType;
         functionSymbolTable.registerFunction(astFunctionDeclaration);
 
@@ -481,7 +481,15 @@ public class SemanticVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTFunctionCall astFunctionCall) throws SemanticException {
-        ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(astFunctionCall.identifier.identifier);
+        StringBuilder stringBuilder = new StringBuilder(astFunctionCall.identifier.identifier);
+
+        //Need to loop again to get the types
+        for (ASTExpression expression : astFunctionCall.parameters) {
+            visit(expression);
+            stringBuilder.append(expressionType.lexeme);
+        }
+
+        ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(stringBuilder.toString());
 
         if (declaredFunction != null) {
             if (declaredFunction.parameterList.size() != astFunctionCall.parameters.size()) {

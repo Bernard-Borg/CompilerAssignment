@@ -15,9 +15,19 @@ public class FunctionSymbolTable {
         table.push (new HashMap<>());
     }
 
+    public String generateIdentifier(ASTFunctionDeclaration function) {
+        StringBuilder generatedIdentifier = new StringBuilder(function.functionName.identifier);
+
+        function.parameterList.forEach(astParameter -> {
+            generatedIdentifier.append(astParameter.type.lexeme);
+        });
+
+        return generatedIdentifier.toString();
+    }
+
     public void registerFunction(ASTFunctionDeclaration function) {
         if (!table.isEmpty()) {
-            table.peek().put(function.functionName.identifier, function);
+            table.peek().put(generateIdentifier(function), function);
         }
     }
 

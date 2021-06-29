@@ -39,6 +39,8 @@ public class InterpretationVisitor implements ASTVisitor {
         for (ASTStatement statement : astProgram.statements) {
             visit(statement);
         }
+
+        System.out.println("hI");
     }
 
     @Override
@@ -510,7 +512,15 @@ public class InterpretationVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTFunctionCall astFunctionCall) throws Exception {
-        ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(astFunctionCall.identifier.identifier);
+        StringBuilder stringBuilder = new StringBuilder(astFunctionCall.identifier.identifier);
+
+        //Need to loop again to get the types
+        for (ASTExpression expression : astFunctionCall.parameters) {
+            visit(expression);
+            stringBuilder.append(expressionType.lexeme);
+        }
+
+        ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(stringBuilder.toString());
 
         variableSymbolTable.push();
 
@@ -530,7 +540,7 @@ public class InterpretationVisitor implements ASTVisitor {
         would switch to that return type - therefore this allows functions to be called inside other functions*/
         Type previousReturnType = returnTypeOfCurrentFunction;
 
-        identifierOfCurrentFunction = astFunctionCall.identifier.identifier;
+        identifierOfCurrentFunction = stringBuilder.toString();
         returnTypeOfCurrentFunction = declaredFunction.returnType;
 
         visit(declaredFunction.functionBlock);
