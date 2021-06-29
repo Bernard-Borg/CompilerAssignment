@@ -38,6 +38,14 @@ public class VariableSymbolTable {
         }
     }
 
+    public void changeType(String identifier, Type type) {
+        TypeValuePair temp = lookup(identifier);
+
+        if (temp != null) {
+            temp.type = type;
+        }
+    }
+
     public Type lookupType(String identifier) {
         TypeValuePair temp = lookup(identifier);
         return temp != null ? temp.type : null;

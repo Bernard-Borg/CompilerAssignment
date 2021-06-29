@@ -1,6 +1,5 @@
 package semantics;
 
-import com.sun.org.apache.bcel.internal.generic.AASTORE;
 import lexer.Array;
 import lexer.TokenType;
 import lexer.Type;
@@ -16,6 +15,7 @@ public class SemanticVisitor implements ASTVisitor {
     private final ASTProgram program;
     private Type expressionType = null;
     private Type returnTypeOfCurrentFunction = null;
+    private String identifierOfCurrentFunction = "";
     private boolean hasReturn = false;
 
     public SemanticVisitor(ASTProgram program) {
@@ -85,9 +85,32 @@ public class SemanticVisitor implements ASTVisitor {
         if (type != null) {
             visit(astAssignment.expression);
 
-            if (!type.lexeme.equals(expressionType.lexeme)) {
-                if (!("int".equals(expressionType.lexeme) && "float".equals(type.lexeme))) {
-                    throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+            if (type instanceof Array) {
+                //Case when assigning array to undefined auto array
+                if ("auto".equals(((Array) type).arrayType.lexeme)) {
+                    variableSymbolTable.changeType(astAssignment.identifier.identifier, new Array(-1, expressionType));
+                } else {
+                    if (!expressionType.lexeme.equals(type.lexeme)) {
+                        throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                    }
+                }
+            } else {
+                //If type specifier is auto (declared as auto but not initialised), set it to the type being assigned
+                if ("auto".equals(type.lexeme)) {
+                    //Case when accessing undefined array with auto type (example a[0] where let a[size]:auto;)
+                    if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
+                        variableSymbolTable.changeType(astAssignment.identifier.identifier, new Array(-1, expressionType));
+                    } else {
+                        variableSymbolTable.changeType(astAssignment.identifier.identifier, expressionType);
+                    }
+
+                    return;
+                }
+
+                if (!type.lexeme.equals(expressionType.lexeme)) {
+                    if (!("int".equals(expressionType.lexeme) && "float".equals(type.lexeme))) {
+                        throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                    }
                 }
             }
         } else {
@@ -156,6 +179,10 @@ public class SemanticVisitor implements ASTVisitor {
         variableSymbolTable.push();
 
         for (ASTParameter parameter : astFunctionDeclaration.parameterList) {
+            if ("auto".equals(parameter.type.lexeme)) {
+                throwException("Parameter cannot be of type auto");
+            }
+
             if (variableSymbolTable.lookupType(parameter.identifier.identifier) != null) {
                 throwException("Variable " + parameter.identifier.identifier + " has already been defined");
             }
@@ -163,6 +190,7 @@ public class SemanticVisitor implements ASTVisitor {
             variableSymbolTable.insert(parameter.identifier.identifier, parameter.type);
         }
 
+        identifierOfCurrentFunction = astFunctionDeclaration.functionName.identifier;
         returnTypeOfCurrentFunction = astFunctionDeclaration.returnType;
         functionSymbolTable.registerFunction(astFunctionDeclaration);
 
@@ -182,6 +210,7 @@ public class SemanticVisitor implements ASTVisitor {
             throwException("Function must return a value");
         }
 
+        identifierOfCurrentFunction = "";
         returnTypeOfCurrentFunction = null;
         variableSymbolTable.pop();
     }
@@ -219,6 +248,11 @@ public class SemanticVisitor implements ASTVisitor {
         } else {
             visit(astReturn.expression);
 
+            if ("auto".equals(returnTypeOfCurrentFunction.lexeme)) {
+                returnTypeOfCurrentFunction = expressionType;
+                functionSymbolTable.lookup(identifierOfCurrentFunction).returnType = expressionType;
+            }
+
             if (!returnTypeOfCurrentFunction.lexeme.equals(expressionType.lexeme)) {
                 if (!("float".equals(returnTypeOfCurrentFunction.lexeme) && "int".equals(expressionType.lexeme))) {
                     throwException("Returning type " + expressionType.lexeme + ", required: " + returnTypeOfCurrentFunction.lexeme);
@@ -246,9 +280,24 @@ public class SemanticVisitor implements ASTVisitor {
             if (astVariableDeclaration.expression != null) {
                 visit(astVariableDeclaration.expression);
 
-                if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
-                    if (!("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme))) {
-                        throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + astVariableDeclaration.type.lexeme);
+                //If an array is being declared of type auto (auto[]), change type
+                if (astVariableDeclaration.type instanceof Array && expressionType instanceof Array) {
+                    if ("auto".equals(((Array) astVariableDeclaration.type).arrayType.lexeme)) {
+                        declaredType = new Array(-1, ((Array) expressionType).arrayType);
+                    } else {
+                        if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
+                            throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + astVariableDeclaration.type.lexeme);
+                        }
+                    }
+                } else {
+                    if ("auto".equals(astVariableDeclaration.type.lexeme)) {
+                        declaredType = expressionType;
+                    } else {
+                        if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
+                            if (!("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme))) {
+                                throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + astVariableDeclaration.type.lexeme);
+                            }
+                        }
                     }
                 }
             }

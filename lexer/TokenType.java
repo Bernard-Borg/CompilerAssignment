@@ -31,7 +31,6 @@ public enum TokenType {
     OPENROUNDBRACKET("'('"),
     OPENSQUAREBRACKET("'['"),
     OR("'or'"),
-    PRIMITIVE("type specifier"),
     PRINT("'print'"),
     REAL("float literal"),
     RETURN("'return'"),
@@ -39,6 +38,7 @@ public enum TokenType {
     STRING("string literal"),
     SUB("'-'"),
     TRUE("'true'"),
+    TYPE("type specifier"),
     WHILE("'while'");
 
     //Name is used for error messages

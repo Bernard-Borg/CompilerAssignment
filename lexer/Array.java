@@ -5,7 +5,7 @@ public class Array extends Type {
     public Type arrayType;
 
     public Array(int size, Type type) {
-        super(type.lexeme + "[]", TokenType.PRIMITIVE);
+        super(type.lexeme + "[]", TokenType.TYPE);
         this.size = size;
         arrayType = type;
     }

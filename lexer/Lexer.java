@@ -77,6 +77,7 @@ public class Lexer {
         put(Type.INTEGER);
         put(Type.STRING);
         put(Type.CHAR);
+        put(Type.AUTO);
     }
 
     //Utility method to add strings to map of keywords

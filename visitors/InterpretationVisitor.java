@@ -18,6 +18,7 @@ public class InterpretationVisitor implements ASTVisitor {
     private Object expressionValue = null;
     private boolean hasReturn = false;
     private Type returnTypeOfCurrentFunction = null;
+    private String identifierOfCurrentFunction = "";
 
     public InterpretationVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
@@ -77,6 +78,11 @@ public class InterpretationVisitor implements ASTVisitor {
 
                 visit(astAssignment.expression);
 
+                if ("auto".equals(((Array) typeValuePair.type).arrayType.lexeme)) {
+                    variableSymbolTable.changeType(astAssignment.identifier.identifier,
+                            new Array(((Array) typeValuePair.type).size, expressionType));
+                }
+
                 ((Object[]) typeValuePair.value)[index] = expressionValue;
                 variableSymbolTable.changeValue(astAssignment.identifier.identifier, typeValuePair.value);
             }
@@ -89,6 +95,10 @@ public class InterpretationVisitor implements ASTVisitor {
                 if (!(((Array) type).size == ((Array) expressionType).size)) {
                     throw new Exception ("Arrays need to be of equal sizes");
                 }
+            }
+
+            if ("auto".equals(type.lexeme)) {
+                variableSymbolTable.changeType(astAssignment.identifier.identifier, expressionType);
             }
 
             if ("int".equals(expressionType.lexeme) && "float".equals(type.lexeme)) {
@@ -188,6 +198,11 @@ public class InterpretationVisitor implements ASTVisitor {
     public void visit(ASTReturn astReturn) throws Exception {
         visit(astReturn.expression);
 
+        if ("auto".equals(returnTypeOfCurrentFunction.lexeme)) {
+            returnTypeOfCurrentFunction = expressionType;
+            functionSymbolTable.lookup(identifierOfCurrentFunction).returnType = expressionType;
+        }
+
         if ("float".equals(returnTypeOfCurrentFunction.lexeme) && "int".equals(expressionType.lexeme)) {
             expressionValue = ((Integer) expressionValue).floatValue();
         }
@@ -204,28 +219,38 @@ public class InterpretationVisitor implements ASTVisitor {
                 throw new NegativeArraySizeException();
             }
 
+            Type arrayType = ((Array) astVariableDeclaration.type).arrayType;
+
             if (astVariableDeclaration.expression != null) {
                 visit(astVariableDeclaration.expression);
 
                 if (!(arraySize == ((Object[]) expressionValue).length)) {
                     throw new Exception ("Arrays need to be of equal sizes");
                 }
+
+                if ("auto".equals(arrayType.lexeme)) {
+                    arrayType = astVariableDeclaration.type;
+                }
             } else {
                 expressionValue = new Object[arraySize];
             }
 
             variableSymbolTable.insert(astVariableDeclaration.identifier.identifier,
-                    new Array(arraySize, ((Array) astVariableDeclaration.type).arrayType), expressionValue);
+                    new Array(arraySize, arrayType), expressionValue);
         } else {
             Type variableType = astVariableDeclaration.type;
 
             if (astVariableDeclaration.expression != null) {
                 visit(astVariableDeclaration.expression);
 
-                if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
-                    expressionValue = ((Integer) expressionValue).floatValue();
-                    expressionType = Type.FLOAT;
+                if ("auto".equals(astVariableDeclaration.type.lexeme)) {
                     variableType = expressionType;
+                } else {
+                    if ("int".equals(expressionType.lexeme) && "float".equals(astVariableDeclaration.type.lexeme)) {
+                        expressionValue = ((Integer) expressionValue).floatValue();
+                        expressionType = Type.FLOAT;
+                        variableType = expressionType;
+                    }
                 }
             } else {
                 expressionValue = null;
@@ -486,6 +511,7 @@ public class InterpretationVisitor implements ASTVisitor {
     @Override
     public void visit(ASTFunctionCall astFunctionCall) throws Exception {
         ASTFunctionDeclaration declaredFunction = functionSymbolTable.lookup(astFunctionCall.identifier.identifier);
+
         variableSymbolTable.push();
 
         for (int i = 0; i < declaredFunction.parameterList.size(); i++) {
@@ -504,10 +530,12 @@ public class InterpretationVisitor implements ASTVisitor {
         would switch to that return type - therefore this allows functions to be called inside other functions*/
         Type previousReturnType = returnTypeOfCurrentFunction;
 
+        identifierOfCurrentFunction = astFunctionCall.identifier.identifier;
         returnTypeOfCurrentFunction = declaredFunction.returnType;
 
         visit(declaredFunction.functionBlock);
 
+        identifierOfCurrentFunction = "";
         returnTypeOfCurrentFunction = previousReturnType;
         expressionType = declaredFunction.returnType;
         variableSymbolTable.pop();

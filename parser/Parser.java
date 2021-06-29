@@ -93,7 +93,7 @@ public class Parser {
                 ASTReturn returnStatement = parseReturnStatement();
                 assertToken(TokenType.SEMICOLON);
                 return returnStatement;
-            case PRIMITIVE:
+            case TYPE:
                 return parseFunctionDeclaration();
             case OPENCURLYBRACKET:
                 return parseBlock();
@@ -522,7 +522,7 @@ public class Parser {
         }
 
         assertToken(TokenType.COLON);
-        assertToken(TokenType.PRIMITIVE);
+        assertToken(TokenType.TYPE);
 
         if (isArray) {
             parameterType = new Array(-1, (Type) lookahead);
@@ -574,7 +574,7 @@ public class Parser {
         }
 
         assertToken(TokenType.COLON);
-        assertToken(TokenType.PRIMITIVE);
+        assertToken(TokenType.TYPE);
 
         if (isArray) {
             type = new Array(-1, (Type) lookahead);
