@@ -17,7 +17,7 @@ public class Lexer {
 
     //Table containing DFA transitions
     private final int[][] transitionTable = {
-        {INTEGER,IDENTIFIER,STRING1,ERROR,ADD,SUB,DIV,MUL,SYMBOL,IDENTIFIER,EQ1,LT,GT,NOT,SYMBOL,CHAR1,ERROR,ERROR},
+        {INTEGER,IDENTIFIER,STRING1,SYMBOL,ADD,SUB,DIV,MUL,SYMBOL,IDENTIFIER,EQ1,LT,GT,NOT,SYMBOL,CHAR1,ERROR,ERROR},
         {STRING1,STRING1,STRING2,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,STRING1,ERROR,STRING1,STRING1,ERROR},
         {ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR},
         {IDENTIFIER,IDENTIFIER,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,IDENTIFIER,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR,ERROR},
@@ -72,6 +72,7 @@ public class Lexer {
         put(Word.FOR);
         put(Word.WHILE);
         put(Word.NOT);
+        put(Word.STRUCT);
         put(Type.BOOL);
         put(Type.FLOAT);
         put(Type.INTEGER);
@@ -264,6 +265,7 @@ public class Lexer {
                     case ":": return new Token(TokenType.COLON);
                     case ";": return new Token(TokenType.SEMICOLON);
                     case ",": return new Token(TokenType.COMMA);
+                    case ".": return new Token(TokenType.DOT);
                 }
             case ADD:
                 return new Token(TokenType.ADD);

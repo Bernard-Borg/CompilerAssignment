@@ -39,8 +39,6 @@ public class InterpretationVisitor implements ASTVisitor {
         for (ASTStatement statement : astProgram.statements) {
             visit(statement);
         }
-
-        System.out.println("hI");
     }
 
     @Override
@@ -186,10 +184,6 @@ public class InterpretationVisitor implements ASTVisitor {
         visit(astPrint.expression);
 
         if (expressionType instanceof Array) {
-            if (Arrays.asList((Object[]) expressionValue).contains(null)) {
-                throw new Exception ("Some array elements are undefined");
-            }
-
             System.out.println(Arrays.toString((Object[]) expressionValue));
         } else {
             System.out.println(expressionValue.toString());
@@ -231,7 +225,7 @@ public class InterpretationVisitor implements ASTVisitor {
                 }
 
                 if ("auto".equals(arrayType.lexeme)) {
-                    arrayType = astVariableDeclaration.type;
+                    arrayType = ((Array) expressionType).arrayType;
                 }
             } else {
                 expressionValue = new Object[arraySize];
@@ -576,7 +570,7 @@ public class InterpretationVisitor implements ASTVisitor {
             expressionValue = ((Object[]) variable.value)[index];
 
             if (expressionValue == null) {
-                throw new Exception ("Array " + astArrayIndexIdentifier.identifier + " index " + index + " is undefined");
+                throw new NullPointerException ("Array " + astArrayIndexIdentifier.identifier + " index " + index + " is undefined");
             }
         } else {
             throw new Exception ("Array " + astArrayIndexIdentifier.identifier + " has not been initialised");
@@ -647,5 +641,20 @@ public class InterpretationVisitor implements ASTVisitor {
             expressionValue = !(Boolean) expressionValue;
             expressionType = Type.BOOL;
         }
+    }
+
+    @Override
+    public void visit(ASTStruct astStruct) throws Exception {
+
+    }
+
+    @Override
+    public void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception {
+
+    }
+
+    @Override
+    public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception {
+
     }
 }

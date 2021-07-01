@@ -4,7 +4,9 @@ import lexer.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @SuppressWarnings("rawtypes")
 public class Parser {
@@ -12,8 +14,15 @@ public class Parser {
     private Token lookahead;
     private boolean lookaheadUsed = true;
 
+    //Used to prevent variable declarations with complex types in structs
+    private boolean isStruct = false;
+
+    //Stores the structs which exist (to change identifier to type)
+    private final Set<String> definedStructs;
+
     public Parser(Lexer lexer) {
         this.lexer = lexer;
+        definedStructs = new HashSet<>();
     }
 
     private void updateLookahead() throws Exception {
@@ -27,6 +36,7 @@ public class Parser {
         throw new ParseException(message + " at line " + lexer.lineNumber);
     }
 
+    //Checks whether the current lookahead is of the required token type
     private boolean isLookahead(TokenType tokenType) {
         if (lookahead == null)
             return false;
@@ -34,6 +44,7 @@ public class Parser {
         return tokenType == lookahead.tokenType;
     }
 
+    //Matches next token to the required token, throws exception if they don't match
     private void assertToken(TokenType tokenType) throws Exception {
         updateLookahead();
 
@@ -76,6 +87,10 @@ public class Parser {
                 assertToken(TokenType.SEMICOLON);
                 return variableDeclaration;
             case IDENTIFIER:
+                if (definedStructs.contains(((Word) lookahead).lexeme)) {
+                    return parseFunctionDeclaration();
+                }
+
                 ASTAssignment assignment = parseAssignment();
                 assertToken(TokenType.SEMICOLON);
                 return assignment;
@@ -97,6 +112,8 @@ public class Parser {
                 return parseFunctionDeclaration();
             case OPENCURLYBRACKET:
                 return parseBlock();
+            case STRUCT:
+                return parseStruct();
             default:
                 throwException("Unexpected " + lookahead.tokenType + ", expecting statement");
                 return null;
@@ -227,6 +244,50 @@ public class Parser {
         return token.tokenType == TokenType.MUL || token.tokenType == TokenType.DIV || token.tokenType == TokenType.AND;
     }
 
+    private ASTStruct parseStruct() throws Exception {
+        isStruct = true;
+        List<ASTStatement> statementsList = new ArrayList<>();
+
+        assertToken(TokenType.STRUCT);
+        assertToken(TokenType.IDENTIFIER);
+
+        ASTIdentifier structName = new ASTIdentifier((Word) lookahead);
+        definedStructs.add(structName.identifier);
+
+        assertToken(TokenType.OPENCURLYBRACKET);
+
+        while (true) {
+            updateLookahead();
+
+            if (lookahead == null) {
+                throwException("Unexpected end of file, expecting " + TokenType.LET + " or type");
+            }
+
+            if (isLookahead(TokenType.CLOSECURLYBRACKET)) {
+                break;
+            }
+
+            if (isLookahead(TokenType.LET)) {
+                statementsList.add(parseVariableDeclaration());
+                assertToken(TokenType.SEMICOLON);
+            } else if (isLookahead(TokenType.TYPE)) {
+                statementsList.add(parseFunctionDeclaration());
+            } else if (isLookahead(TokenType.IDENTIFIER)) {
+                if (definedStructs.contains(((Word) lookahead).lexeme)) {
+                    statementsList.add(parseFunctionDeclaration());
+                } else {
+                    throwException("Could not resolve identifier " + ((Word) lookahead).lexeme + " as a struct type");
+                }
+            } else {
+                throwException("Got " + lookahead.tokenType + ", expecting " + TokenType.LET + " or type");
+            }
+        }
+
+        assertToken(TokenType.CLOSECURLYBRACKET);
+        isStruct = false;
+        return new ASTStruct(structName, statementsList);
+    }
+
     private ASTExpression parseFactor() throws Exception {
         updateLookahead();
 
@@ -258,9 +319,11 @@ public class Parser {
                 updateLookahead();
 
                 if (isLookahead(TokenType.OPENROUNDBRACKET)) {
-                    return parseFunctionCall(lookaheadTemp);
+                    return parseFunctionCall(new ASTIdentifier((Word) lookaheadTemp));
                 } else if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
                     return parseArrayIndexIdentifier(new ASTIdentifier((Word) lookaheadTemp));
+                } else if (isLookahead(TokenType.DOT)) {
+                    return parseStructSelector(new ASTIdentifier((Word) lookaheadTemp));
                 } else {
                     return new ASTIdentifier((Word) lookaheadTemp);
                 }
@@ -268,6 +331,45 @@ public class Parser {
                 throwException("Unexpected " + lookahead.tokenType + ", expecting expression");
                 return null;
         }
+    }
+
+    private ASTIdentifier parseAssignmentIdentifier() throws Exception {
+        ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
+        lookaheadUsed = true;
+
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.EQ);
+        }
+
+        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+            identifier = parseArrayIndexIdentifier(identifier);
+        } else if (isLookahead(TokenType.DOT)) {
+            identifier = parseStructSelector(identifier);
+
+            if (identifier instanceof ASTStructFunctionSelector) {
+                throwException("Cannot assign value to struct function call");
+            }
+        }
+
+        return identifier;
+    }
+
+    private ASTIdentifier parseDeclarationIdentifier() throws Exception {
+        ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
+
+        updateLookahead();
+
+        if (lookahead == null) {
+            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.COLON);
+        }
+
+        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
+            identifier = parseArrayIndexIdentifier(identifier);
+        }
+
+        return identifier;
     }
 
     private ASTArrayIndexIdentifier parseArrayIndexIdentifier(ASTIdentifier identifier) throws Exception {
@@ -280,8 +382,25 @@ public class Parser {
         return new ASTArrayIndexIdentifier(identifier, index);
     }
 
-    private ASTFunctionCall parseFunctionCall(Token identifierToken) throws Exception {
-        ASTIdentifier identifier = new ASTIdentifier((Word) identifierToken);
+    private ASTIdentifier parseStructSelector(ASTIdentifier structIdentifier) throws Exception {
+        ASTFunctionCall functionCall;
+
+        assertToken(TokenType.DOT);
+        assertToken(TokenType.IDENTIFIER);
+
+        ASTIdentifier structMemberIdentifier = new ASTIdentifier((Word) lookahead);
+
+        updateLookahead();
+
+        if (isLookahead(TokenType.OPENROUNDBRACKET)) {
+            functionCall = parseFunctionCall(structMemberIdentifier);
+            return new ASTStructFunctionSelector(structIdentifier, functionCall);
+        } else {
+            return new ASTStructVariableSelector(structIdentifier, structMemberIdentifier);
+        }
+    }
+
+    private ASTFunctionCall parseFunctionCall(ASTIdentifier functionIdentifier) throws Exception {
         assertToken(TokenType.OPENROUNDBRACKET);
         List<ASTExpression> parameters = null;
 
@@ -298,7 +417,7 @@ public class Parser {
             assertToken(TokenType.CLOSEROUNDBRACKET);
         }
 
-        return new ASTFunctionCall(identifier, parameters);
+        return new ASTFunctionCall(functionIdentifier, parameters);
     }
 
     //Previously was parseActualParameters, changed name so that array literal can also use it
@@ -453,8 +572,7 @@ public class Parser {
     }
 
     private ASTFunctionDeclaration parseFunctionDeclaration() throws Exception {
-        Type returnType = (Type) lookahead;
-        lookaheadUsed = true;
+        Type returnType = parseType(false, false);
 
         assertToken(TokenType.IDENTIFIER);
         ASTIdentifier functionName = new ASTIdentifier((Word) lookahead);
@@ -503,7 +621,6 @@ public class Parser {
     }
 
     private ASTParameter parseParameter() throws Exception {
-        Type parameterType;
         boolean isArray = false;
 
         assertToken(TokenType.IDENTIFIER);
@@ -522,72 +639,74 @@ public class Parser {
         }
 
         assertToken(TokenType.COLON);
-        assertToken(TokenType.TYPE);
 
-        if (isArray) {
-            parameterType = new Array(-1, (Type) lookahead);
-        } else {
-            parameterType = (Type) lookahead;
-        }
+        Type parameterType = parseType(isArray, false);
 
         return new ASTParameter(identifier, parameterType);
     }
 
     private ASTAssignment parseAssignment() throws Exception {
-        ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
-        lookaheadUsed = true;
-
-        updateLookahead();
-
-        if (lookahead == null) {
-            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.EQ);
-        }
-
-        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
-            identifier = parseArrayIndexIdentifier(identifier);
-        }
+        ASTIdentifier identifier = parseAssignmentIdentifier();
 
         assertToken(TokenType.EQ);
+
         ASTExpression expression = parseExpression();
 
         return new ASTAssignment(identifier, expression);
+    }
+
+    private Type parseType(boolean isArray, boolean checkIfStruct) throws Exception {
+        Type type = null;
+
+        updateLookahead();
+
+        if (isLookahead(TokenType.TYPE)) {
+            type = (Type) lookahead;
+            lookaheadUsed = true;
+        } else if (isLookahead(TokenType.IDENTIFIER)) {
+            if (checkIfStruct && isStruct) {
+                throwException("Can not have complex type here");
+            }
+
+            if (definedStructs.contains(((Word) lookahead).lexeme)) {
+                type = new Type(((Word) lookahead).lexeme, TokenType.COMPLEXTYPE);
+                lookaheadUsed = true;
+            } else {
+                throwException("Could not resolve identifier " + ((Word) lookahead).lexeme + " as a struct type");
+            }
+        } else {
+            throwException("Expected type, got " + lookahead.tokenType);
+        }
+
+        if (isArray) {
+            return new Array(-1, type);
+        } else {
+            return type;
+        }
     }
 
     private ASTVariableDeclaration parseVariableDeclaration() throws Exception {
         assertToken(TokenType.LET);
         assertToken(TokenType.IDENTIFIER);
 
+        ASTIdentifier identifier = parseDeclarationIdentifier();
+
         boolean isArray = false;
-        Type type;
 
-        ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
-
-        updateLookahead();
-
-        if (lookahead == null) {
-            throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.COLON);
-        }
-
-        if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
-            identifier = parseArrayIndexIdentifier(identifier);
+        if (identifier instanceof ASTArrayIndexIdentifier) {
             isArray = true;
         }
 
         assertToken(TokenType.COLON);
-        assertToken(TokenType.TYPE);
 
-        if (isArray) {
-            type = new Array(-1, (Type) lookahead);
-        } else {
-            type = (Type) lookahead;
-        }
+        Type type = parseType(isArray, true);
 
         ASTExpression expression = null;
 
         updateLookahead();
 
         if (lookahead == null) {
-            throwException("Unexpected end of file, expecting " + TokenType.LET + " or " + TokenType.SEMICOLON);
+            throwException("Unexpected end of file, expecting " + TokenType.EQ + " or " + TokenType.SEMICOLON);
         }
 
         if (isLookahead(TokenType.EQ)) {

@@ -44,23 +44,25 @@ public class XMLVisitor implements ASTVisitor {
     @Override
     public void visit(ASTStatement statement) {
         if (statement instanceof ASTAssignment) {
-            visit ((ASTAssignment) statement);
+            visit((ASTAssignment) statement);
         } else if (statement instanceof ASTBlock) {
-            visit ((ASTBlock) statement);
+            visit((ASTBlock) statement);
         } else if (statement instanceof ASTFor) {
-            visit ((ASTFor) statement);
+            visit((ASTFor) statement);
         } else if (statement instanceof ASTFunctionDeclaration) {
-            visit ((ASTFunctionDeclaration) statement);
+            visit((ASTFunctionDeclaration) statement);
         } else if (statement instanceof ASTIf) {
-            visit ((ASTIf) statement);
+            visit((ASTIf) statement);
         } else if (statement instanceof ASTPrint) {
-            visit ((ASTPrint) statement);
+            visit((ASTPrint) statement);
         } else if (statement instanceof ASTReturn) {
-            visit ((ASTReturn) statement);
+            visit((ASTReturn) statement);
         } else if (statement instanceof ASTVariableDeclaration) {
-            visit ((ASTVariableDeclaration) statement);
+            visit((ASTVariableDeclaration) statement);
         } else if (statement instanceof ASTWhile) {
-            visit ((ASTWhile) statement);
+            visit((ASTWhile) statement);
+        } else if (statement instanceof ASTStruct) {
+            visit((ASTStruct) statement);
         } else {
             System.err.println("Unknown node while visiting statement");
         }
@@ -207,19 +209,23 @@ public class XMLVisitor implements ASTVisitor {
     @Override
     public void visit(ASTExpression astExpression) {
         if (astExpression instanceof ASTBinaryOperator) {
-            visit ((ASTBinaryOperator) astExpression);
+            visit((ASTBinaryOperator) astExpression);
+        } else if (astExpression instanceof ASTStructVariableSelector) {
+            visit((ASTStructVariableSelector) astExpression);
+        } else if (astExpression instanceof ASTStructFunctionSelector) {
+            visit((ASTStructFunctionSelector) astExpression);
         } else if (astExpression instanceof ASTArrayIndexIdentifier) {
-            visit ((ASTArrayIndexIdentifier) astExpression);
+            visit((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
-            visit ((ASTIdentifier) astExpression);
-        } else if (astExpression instanceof ASTLiteral) {
-            visit ((ASTLiteral) astExpression);
+            visit((ASTIdentifier) astExpression);
+        } else if(astExpression instanceof ASTLiteral) {
+            visit((ASTLiteral) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
-            visit ((ASTFunctionCall) astExpression);
+            visit((ASTFunctionCall) astExpression);
         } else if (astExpression instanceof ASTUnary) {
-            visit ((ASTUnary) astExpression);
+            visit((ASTUnary) astExpression);
         } else if (astExpression instanceof ASTArrayLiteral) {
-            visit ((ASTArrayLiteral) astExpression);
+            visit((ASTArrayLiteral) astExpression);
         } else {
             System.err.println("Unknown node while visiting expression");
         }
@@ -336,6 +342,43 @@ public class XMLVisitor implements ASTVisitor {
         parentElement.appendChild(currentElement);
 
         visit(astUnary.expression);
+
+        currentElement = parentElement;
+    }
+
+    @Override
+    public void visit(ASTStruct astStruct) {
+        Element parentElement = currentElement;
+        currentElement = xmlDocument.createElement("Struct");
+        currentElement.setAttribute("structName", astStruct.structName.identifier);
+        parentElement.appendChild(currentElement);
+
+        for(ASTStatement statements : astStruct.statementsList) {
+            visit(statements);
+        }
+
+        currentElement = parentElement;
+    }
+
+    @Override
+    public void visit(ASTStructVariableSelector astStructVariableSelector) {
+        Element parentElement = currentElement;
+        currentElement = xmlDocument.createElement("StructVariableIdentifier");
+        currentElement.setAttribute("structIdentifier", astStructVariableSelector.identifier);
+        currentElement.setAttribute("variableIdentifier", astStructVariableSelector.elementIdentifier.identifier);
+        parentElement.appendChild(currentElement);
+
+        currentElement = parentElement;
+    }
+
+    @Override
+    public void visit(ASTStructFunctionSelector astStructFunctionSelector) {
+        Element parentElement = currentElement;
+        currentElement = xmlDocument.createElement("StructVariableIdentifier");
+        currentElement.setAttribute("structIdentifier", astStructFunctionSelector.identifier);
+        parentElement.appendChild(currentElement);
+
+        visit(astStructFunctionSelector.functionCall);
 
         currentElement = parentElement;
     }

@@ -22,4 +22,7 @@ public interface ASTVisitor {
     void visit(ASTLiteral astLiteral) throws Exception;
     void visit(ASTArrayLiteral astArrayLiteral) throws Exception;
     void visit(ASTUnary astUnary) throws Exception;
+    void visit(ASTStruct astStruct) throws Exception;
+    void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception;
+    void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception;
 }

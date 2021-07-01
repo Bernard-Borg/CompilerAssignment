@@ -14,6 +14,7 @@ public class Word extends Token {
     public static final Word FOR = new Word("for", TokenType.FOR);
     public static final Word WHILE = new Word("while", TokenType.WHILE);
     public static final Word NOT = new Word("not", TokenType.NOT);
+    public static final Word STRUCT = new Word("tlstruct", TokenType.STRUCT);
 
     public String lexeme = "";
 

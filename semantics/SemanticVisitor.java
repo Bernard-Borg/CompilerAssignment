@@ -607,4 +607,19 @@ public class SemanticVisitor implements ASTVisitor {
             }
         }
     }
+
+    @Override
+    public void visit(ASTStruct astStruct) throws Exception {
+
+    }
+
+    @Override
+    public void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception {
+
+    }
+
+    @Override
+    public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception {
+
+    }
 }
