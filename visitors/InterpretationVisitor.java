@@ -6,13 +6,12 @@ import semantics.FunctionSymbolTable;
 import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import javax.annotation.PostConstruct;
+import java.util.*;
 
 public class InterpretationVisitor implements ASTVisitor {
-    private final VariableSymbolTable variableSymbolTable;
-    private final FunctionSymbolTable functionSymbolTable;
+    private VariableSymbolTable variableSymbolTable;
+    private FunctionSymbolTable functionSymbolTable;
     private final ASTProgram program;
     private Type expressionType = null;
     private Object expressionValue = null;
@@ -20,9 +19,13 @@ public class InterpretationVisitor implements ASTVisitor {
     private Type returnTypeOfCurrentFunction = null;
     private String identifierOfCurrentFunction = "";
 
+    private Map<String, ASTStruct> registeredStructs;
+
     public InterpretationVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
         functionSymbolTable = new FunctionSymbolTable();
+        registeredStructs = new HashMap<>();
+
         this.program = program;
     }
 
@@ -61,6 +64,8 @@ public class InterpretationVisitor implements ASTVisitor {
             visit ((ASTVariableDeclaration) statement);
         } else if (statement instanceof ASTWhile) {
             visit((ASTWhile) statement);
+        } else if (statement instanceof ASTStruct) {
+            visit((ASTStruct) statement);
         }
     }
 
@@ -228,6 +233,17 @@ public class InterpretationVisitor implements ASTVisitor {
                     arrayType = ((Array) expressionType).arrayType;
                 }
             } else {
+                //If an array of structs is declared, it is filled with struct default values
+                if (registeredStructs.containsKey(((Array) astVariableDeclaration.type).arrayType.lexeme)) {
+                    expressionValue = new ASTStruct[arraySize];
+
+                    ASTStruct defaultValue = registeredStructs.get(((Array) astVariableDeclaration.type).arrayType.lexeme);
+
+                    for (int i = 0; i < arraySize; i++) {
+                        ((ASTStruct[]) expressionValue)[i] = defaultValue;
+                    }
+                }
+
                 expressionValue = new Object[arraySize];
             }
 
@@ -249,7 +265,12 @@ public class InterpretationVisitor implements ASTVisitor {
                     }
                 }
             } else {
-                expressionValue = null;
+                //Initialise struct with its default value (stored in registeredStructs)
+                if (variableType.tokenType == TokenType.COMPLEXTYPE) {
+                    expressionValue = registeredStructs.get(variableType.lexeme);
+                } else {
+                    expressionValue = null;
+                }
             }
 
             variableSymbolTable.insert(astVariableDeclaration.identifier.identifier, variableType, expressionValue);
@@ -277,8 +298,12 @@ public class InterpretationVisitor implements ASTVisitor {
             visit((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
             visit((ASTFunctionCall) astExpression);
+        } else if (astExpression instanceof ASTStructVariableSelector) {
+            visit((ASTStructVariableSelector) astExpression);
+        } else if (astExpression instanceof ASTStructFunctionSelector) {
+            visit((ASTStructFunctionSelector) astExpression);
         } else if (astExpression instanceof ASTArrayIndexIdentifier) {
-            visit ((ASTArrayIndexIdentifier) astExpression);
+            visit((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
             visit((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
@@ -286,7 +311,7 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if (astExpression instanceof ASTUnary) {
             visit((ASTUnary) astExpression);
         } else if (astExpression instanceof ASTArrayLiteral) {
-            visit ((ASTArrayLiteral) astExpression);
+            visit((ASTArrayLiteral) astExpression);
         }
     }
 
@@ -645,16 +670,72 @@ public class InterpretationVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTStruct astStruct) throws Exception {
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
 
+        variableSymbolTable = astStruct.variableSymbolTable;
+        functionSymbolTable = astStruct.functionSymbolTable;
+
+        for (ASTStatement statement : astStruct.statementsList) {
+            visit(statement);
+        }
+
+        astStruct.variableSymbolTable = variableSymbolTable;
+        astStruct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
+
+        //Register struct with its default value
+        registeredStructs.put(astStruct.structName.identifier, astStruct);
     }
 
     @Override
     public void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception {
+        //Get struct type
+        TypeValuePair typeValuePair = variableSymbolTable.lookup(astStructVariableSelector.identifier);
 
+        //Get struct
+        ASTStruct struct = (ASTStruct) typeValuePair.value;
+
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = struct.variableSymbolTable;
+        functionSymbolTable = struct.functionSymbolTable;
+
+        visit(astStructVariableSelector.elementIdentifier);
+
+        struct.variableSymbolTable = variableSymbolTable;
+        struct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
     }
 
     @Override
     public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception {
+        //Get struct type
+        TypeValuePair typeValuePair = variableSymbolTable.lookup(astStructFunctionSelector.identifier);
 
+        //Get struct
+        ASTStruct struct = (ASTStruct) typeValuePair.value;
+
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = struct.variableSymbolTable;
+        functionSymbolTable = struct.functionSymbolTable;
+
+        visit(astStructFunctionSelector.functionCall);
+
+        struct.variableSymbolTable = variableSymbolTable;
+        struct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
     }
 }

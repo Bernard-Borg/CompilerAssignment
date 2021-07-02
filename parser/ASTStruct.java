@@ -15,10 +15,6 @@ public class ASTStruct extends ASTStatement {
     public ASTStruct (ASTIdentifier structName, List<ASTStatement> statements) {
         this.structName = structName;
 
-        if (statements.isEmpty()) {
-            statements = null;
-        }
-
         statementsList = statements;
 
         variableSymbolTable = new VariableSymbolTable();

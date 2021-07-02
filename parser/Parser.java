@@ -252,6 +252,7 @@ public class Parser {
         assertToken(TokenType.IDENTIFIER);
 
         ASTIdentifier structName = new ASTIdentifier((Word) lookahead);
+
         definedStructs.add(structName.identifier);
 
         assertToken(TokenType.OPENCURLYBRACKET);

@@ -7,20 +7,28 @@ import parser.*;
 import visitors.ASTVisitor;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SemanticVisitor implements ASTVisitor {
-    private final VariableSymbolTable variableSymbolTable;
-    private final FunctionSymbolTable functionSymbolTable;
+    private VariableSymbolTable variableSymbolTable;
+    private FunctionSymbolTable functionSymbolTable;
     private final ASTProgram program;
     private Type expressionType = null;
     private Type returnTypeOfCurrentFunction = null;
     private String identifierOfCurrentFunction = "";
     private boolean hasReturn = false;
 
+    //Stores the existing structs
+    private Map<String, ASTStruct> registeredStructs;
+    private boolean isStruct = false;
+
     public SemanticVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
         functionSymbolTable = new FunctionSymbolTable();
+        registeredStructs = new HashMap<>();
+
         this.program = program;
     }
 
@@ -49,23 +57,25 @@ public class SemanticVisitor implements ASTVisitor {
     @Override
     public void visit(ASTStatement statement) throws SemanticException {
         if (statement instanceof ASTAssignment) {
-            visit ((ASTAssignment) statement);
+            visit((ASTAssignment) statement);
         } else if (statement instanceof ASTBlock) {
-            visit ((ASTBlock) statement);
+            visit((ASTBlock) statement);
         } else if (statement instanceof ASTFor) {
-            visit ((ASTFor) statement);
+            visit((ASTFor) statement);
         } else if (statement instanceof ASTFunctionDeclaration) {
-            visit ((ASTFunctionDeclaration) statement);
+            visit((ASTFunctionDeclaration) statement);
         } else if (statement instanceof ASTIf) {
-            visit ((ASTIf) statement);
+            visit((ASTIf) statement);
         } else if (statement instanceof ASTPrint) {
-            visit ((ASTPrint) statement);
+            visit((ASTPrint) statement);
         } else if (statement instanceof ASTReturn) {
-            visit ((ASTReturn) statement);
+            visit((ASTReturn) statement);
         } else if (statement instanceof ASTVariableDeclaration) {
-            visit ((ASTVariableDeclaration) statement);
+            visit((ASTVariableDeclaration) statement);
         } else if (statement instanceof ASTWhile) {
-            visit ((ASTWhile) statement);
+            visit((ASTWhile) statement);
+        } else if (statement instanceof ASTStruct) {
+            visit((ASTStruct) statement);
         } else {
             throwException("Unknown statement node");
         }
@@ -263,6 +273,11 @@ public class SemanticVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTVariableDeclaration astVariableDeclaration) throws SemanticException {
+        if (isStruct && ("auto".equals(astVariableDeclaration.type.lexeme)
+                || "auto[]".equals(astVariableDeclaration.type.lexeme))) {
+            throwException("Can not use auto type for variable declarations in structs");
+        }
+
         //If declaring an array, check whether it's size is of type integer
         if (astVariableDeclaration.identifier instanceof ASTArrayIndexIdentifier) {
             visit(((ASTArrayIndexIdentifier) astVariableDeclaration.identifier).index);
@@ -320,19 +335,23 @@ public class SemanticVisitor implements ASTVisitor {
     @Override
     public void visit(ASTExpression astExpression) throws SemanticException {
         if (astExpression instanceof ASTBinaryOperator) {
-            visit ((ASTBinaryOperator) astExpression);
+            visit((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
-            visit ((ASTFunctionCall) astExpression);
+            visit((ASTFunctionCall) astExpression);
+        } else if (astExpression instanceof ASTStructVariableSelector) {
+            visit((ASTStructVariableSelector) astExpression);
+        } else if (astExpression instanceof ASTStructFunctionSelector) {
+            visit((ASTStructFunctionSelector) astExpression);
         } else if (astExpression instanceof ASTArrayIndexIdentifier) {
-            visit ((ASTArrayIndexIdentifier) astExpression);
+            visit((ASTArrayIndexIdentifier) astExpression);
         } else if (astExpression instanceof ASTIdentifier) {
-            visit ((ASTIdentifier) astExpression);
+            visit((ASTIdentifier) astExpression);
         } else if (astExpression instanceof ASTLiteral) {
-            visit ((ASTLiteral) astExpression);
+            visit((ASTLiteral) astExpression);
         } else if (astExpression instanceof ASTUnary) {
-            visit ((ASTUnary) astExpression);
+            visit((ASTUnary) astExpression);
         } else if (astExpression instanceof ASTArrayLiteral) {
-            visit ((ASTArrayLiteral) astExpression);
+            visit((ASTArrayLiteral) astExpression);
         } else {
             throwException("Unknown node while visiting expression");
         }
@@ -609,17 +628,95 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     @Override
-    public void visit(ASTStruct astStruct) throws Exception {
+    public void visit(ASTStruct astStruct) throws SemanticException {
+        isStruct = true;
 
+        if (registeredStructs.containsKey(astStruct.structName.identifier)) {
+            throwException("Duplicate struct: " + astStruct.structName.identifier);
+        }
+
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = astStruct.variableSymbolTable;
+        functionSymbolTable = astStruct.functionSymbolTable;
+
+        for (ASTStatement statement : astStruct.statementsList) {
+            visit(statement);
+        }
+
+        astStruct.variableSymbolTable = variableSymbolTable;
+        astStruct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
+
+        registeredStructs.put(astStruct.structName.identifier, astStruct);
+        isStruct = false;
     }
 
     @Override
-    public void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception {
+    public void visit(ASTStructVariableSelector astStructVariableSelector) throws SemanticException {
+        //Get struct type
+        Type type = variableSymbolTable.lookupType(astStructVariableSelector.identifier);
 
+        if (type == null) {
+            throwException ("Could not resolve variable " + astStructVariableSelector.identifier);
+        }
+
+        //Get registered struct
+        ASTStruct struct = registeredStructs.get(type.lexeme);
+
+        if (struct == null) {
+            throwException("Could not resolve struct type " + type.lexeme);
+        }
+
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = struct.variableSymbolTable;
+        functionSymbolTable = struct.functionSymbolTable;
+
+        visit(astStructVariableSelector.elementIdentifier);
+
+        struct.variableSymbolTable = variableSymbolTable;
+        struct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
     }
 
     @Override
-    public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception {
+    public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws SemanticException {
+        //Get struct type
+        Type type = variableSymbolTable.lookupType(astStructFunctionSelector.identifier);
 
+        if (type == null) {
+            throwException ("Could not resolve variable " + astStructFunctionSelector.identifier);
+        }
+
+        //Get registered struct
+        ASTStruct struct = registeredStructs.get(type.lexeme);
+
+        if (struct == null) {
+            throwException("Could not resolve struct type " + type.lexeme);
+        }
+
+        //Set current scope to only the struct scope
+        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
+        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = struct.variableSymbolTable;
+        functionSymbolTable = struct.functionSymbolTable;
+
+        visit(astStructFunctionSelector.functionCall);
+
+        struct.variableSymbolTable = variableSymbolTable;
+        struct.functionSymbolTable = functionSymbolTable;
+
+        variableSymbolTable = oldVariableSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;
     }
 }
