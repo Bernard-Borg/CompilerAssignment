@@ -424,7 +424,10 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if (checkSymmetrical("float", "string", type1, type2)) {
             typeToReturn = Type.STRING;
             expressionValue = value1.toString() + value2.toString();
-        } else if (checkBoth("int", type1, type2)) {
+        } else if (checkSymmetrical("char", "string", type1, type2)) {
+            typeToReturn = Type.STRING;
+            expressionValue = value1.toString() + value2.toString();
+        } if (checkBoth("int", type1, type2)) {
             typeToReturn = Type.INTEGER;
             expressionValue = (Integer) value1 + (Integer) value2;
         } else if (checkBoth("float", type1, type2)) {
@@ -605,6 +608,7 @@ public class InterpretationVisitor implements ASTVisitor {
 
         expressionType = variable.type;
 
+        //Checks whether the variable has been initialised
         if (variable.value != null) {
             expressionValue = variable.value;
         } else {

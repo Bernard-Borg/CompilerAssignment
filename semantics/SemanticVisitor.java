@@ -21,9 +21,15 @@ public class SemanticVisitor implements ASTVisitor {
     private boolean hasReturn = false;
 
     //Stores the existing structs
-    private Map<String, ASTStruct> registeredStructs;
+    private final Map<String, ASTStruct> registeredStructs;
+
+    //Flag which is true if currently visiting nodes inside a struct node
     private boolean isStruct = false;
 
+    /**
+     * Constructs the semantic visitor
+     * @param program the abstract syntax tree
+     */
     public SemanticVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
         functionSymbolTable = new FunctionSymbolTable();
@@ -32,14 +38,25 @@ public class SemanticVisitor implements ASTVisitor {
         this.program = program;
     }
 
+    /**
+     * Starts semantic analysis
+     */
     public void doSemanticAnalysis() throws SemanticException {
         visit(program);
     }
 
+    /**
+     * Utility method which throws semantic exception
+     * @param message custom exception message
+     */
     private void throwException(String message) throws SemanticException {
         throw new SemanticException(message);
     }
 
+    /**
+     * ASTProgram node semantic visitor
+     * @param astProgram node to visit
+     */
     @Override
     public void visit(ASTProgram astProgram) throws SemanticException {
         //Global scopes
@@ -54,6 +71,10 @@ public class SemanticVisitor implements ASTVisitor {
         functionSymbolTable.pop();
     }
 
+    /**
+     * ASTStatement node semantic visitor
+     * @param statement node to visit
+     */
     @Override
     public void visit(ASTStatement statement) throws SemanticException {
         if (statement instanceof ASTAssignment) {
@@ -81,10 +102,15 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTAssignment node semantic visitor
+     * @param astAssignment node to visit
+     */
     @Override
     public void visit(ASTAssignment astAssignment) throws SemanticException {
         Type type;
 
+        //Visits the different identifier possibilities
         if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
             visit((ASTArrayIndexIdentifier) astAssignment.identifier);
             type = expressionType;
@@ -99,10 +125,28 @@ public class SemanticVisitor implements ASTVisitor {
             visit(astAssignment.expression);
 
             if (type instanceof Array) {
-                //Case when assigning array to undefined auto array
                 if ("auto".equals(((Array) type).arrayType.lexeme)) {
+                    /*
+                        Case when assigning array to undefined auto array
+
+                        Example:
+
+                        let x: auto;
+                        x = { 3, 4, 5 };
+                     */
                     variableSymbolTable.changeType(astAssignment.identifier.identifier, new Array(-1, expressionType));
                 } else {
+                    /*
+                        Case when assigning array to variable
+
+                        Example:
+
+                        let x: int;
+                        x = { 3, 4 };
+
+                        Note: Currently does not support int[] being assigned to variable of type float[]
+                        (This would be done here)
+                     */
                     if (!expressionType.lexeme.equals(type.lexeme)) {
                         throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
                     }
@@ -110,27 +154,56 @@ public class SemanticVisitor implements ASTVisitor {
             } else {
                 //If type specifier is auto (declared as auto but not initialised), set it to the type being assigned
                 if ("auto".equals(type.lexeme)) {
+                    /*
+                        Case when assigning value to auto variable
+                        (the auto type is changed to the type of the value being assigned)
+                     */
+
                     //Case when accessing undefined array with auto type (example a[0] where let a[size]:auto;)
                     if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
+                        /*
+                            Case when assigning a value to a specific array element of an auto array
+
+                            Example:
+
+                            let x[size]: auto;
+                            x[0] = 3;
+
+                            Note that the size must be specified, the following is not possible;
+
+                            let x: auto;
+                            x[0] = 3;
+                         */
+
                         variableSymbolTable.changeType(astAssignment.identifier.identifier, new Array(-1, expressionType));
                     } else {
+                        /*
+                            Example:
+
+                            let x: auto;
+                            x = 3;
+                         */
+
                         variableSymbolTable.changeType(astAssignment.identifier.identifier, expressionType);
                     }
-
-                    return;
-                }
-
-                if (!type.lexeme.equals(expressionType.lexeme)) {
-                    if (!("int".equals(expressionType.lexeme) && "float".equals(type.lexeme))) {
-                        throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                } else {
+                    if (!type.lexeme.equals(expressionType.lexeme)) {
+                        if (!("int".equals(expressionType.lexeme) && "float".equals(type.lexeme))) {
+                            throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                        }
                     }
                 }
             }
         } else {
+            //If type is null, then variable has not been declared
             throwException("Cannot resolve " + astAssignment.identifier.identifier);
         }
     }
 
+    /**
+     * ASTBlock node semantic visitor
+     * @param astBlock node to visit
+     */
     @Override
     public void visit(ASTBlock astBlock) throws SemanticException {
         variableSymbolTable.push();
@@ -141,6 +214,11 @@ public class SemanticVisitor implements ASTVisitor {
         for (ASTStatement statement : astBlock.statements) {
             if (hasReturn) {
                 throwException("Unreachable statement(s)");
+            }
+
+            //Added to disallow functions to be declared inside blocks like for loops, while loops, etc
+            if (statement instanceof ASTFunctionDeclaration) {
+                throwException("Cannot nest functions in a block");
             }
 
             if (statement instanceof ASTReturn) {
@@ -154,6 +232,10 @@ public class SemanticVisitor implements ASTVisitor {
         functionSymbolTable.pop();
     }
 
+    /**
+     * ASTFor node semantic visitor
+     * @param astFor node to visit
+     */
     @Override
     public void visit(ASTFor astFor) throws SemanticException {
         variableSymbolTable.push();
@@ -165,6 +247,7 @@ public class SemanticVisitor implements ASTVisitor {
 
         visit(astFor.conditionExpression);
 
+        //Verifies that the condition statement is indeed boolean
         if (!"bool".equals(expressionType.lexeme)) {
             throwException("Condition expression requires bool type");
         }
@@ -178,12 +261,18 @@ public class SemanticVisitor implements ASTVisitor {
         variableSymbolTable.pop();
     }
 
+    /**
+     * ASTFunctionDeclaration node semantic visitor
+     * @param astFunctionDeclaration node to visit
+     */
     @Override
     public void visit(ASTFunctionDeclaration astFunctionDeclaration) throws SemanticException {
+        //Disallows nesting of functions
         if (returnTypeOfCurrentFunction != null) {
             throwException("Cannot nest functions");
         }
 
+        //If the function has already been defined, an exception is thrown
         if (functionSymbolTable.lookup(functionSymbolTable.generateIdentifier(astFunctionDeclaration)) != null) {
             throwException("Function " + astFunctionDeclaration.functionName.identifier + " has already been defined");
         }
@@ -192,10 +281,12 @@ public class SemanticVisitor implements ASTVisitor {
         variableSymbolTable.push();
 
         for (ASTParameter parameter : astFunctionDeclaration.parameterList) {
+            //Disallows parameters of type auto
             if ("auto".equals(parameter.type.lexeme)) {
                 throwException("Parameter cannot be of type auto");
             }
 
+            //Disallow parameters with an identifier which has already been defined
             if (variableSymbolTable.lookupType(parameter.identifier.identifier) != null) {
                 throwException("Variable " + parameter.identifier.identifier + " has already been defined");
             }
@@ -203,11 +294,14 @@ public class SemanticVisitor implements ASTVisitor {
             variableSymbolTable.insert(parameter.identifier.identifier, parameter.type);
         }
 
+        //Generates identifier of function for function overloading
         identifierOfCurrentFunction = functionSymbolTable.generateIdentifier(astFunctionDeclaration);
         returnTypeOfCurrentFunction = astFunctionDeclaration.returnType;
         functionSymbolTable.registerFunction(astFunctionDeclaration);
 
+        //Parses function statements
         for (ASTStatement statement : astFunctionDeclaration.functionBlock.statements) {
+            //If function has a return and more statements are left,
             if (hasReturn) {
                 throwException("Unreachable statement(s)");
             }
@@ -219,6 +313,7 @@ public class SemanticVisitor implements ASTVisitor {
             }
         }
 
+        //Checks whether function contains return statement
         if (!hasReturn) {
             throwException("Function must return a value");
         }
@@ -228,6 +323,10 @@ public class SemanticVisitor implements ASTVisitor {
         variableSymbolTable.pop();
     }
 
+    /**
+     * ASTIf node semantic visitor
+     * @param astIf node to visit
+     */
     @Override
     public void visit(ASTIf astIf) throws SemanticException {
         visit(astIf.conditionExpression);
@@ -249,23 +348,37 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTPrint node semantic visitor
+     * @param astPrint node to visit
+     */
     @Override
     public void visit(ASTPrint astPrint) throws SemanticException {
         visit(astPrint.expression);
     }
 
+    /**
+     * ASTReturn node semantic visitor
+     * @param astReturn node to visit
+     */
     @Override
     public void visit(ASTReturn astReturn) throws SemanticException {
         if (returnTypeOfCurrentFunction == null) {
-            throwException("You cannot return a value in global scope");
+            //Prevents return statements from being declared outside a function
+            throwException("You cannot return a value outside function scope");
         } else {
             visit(astReturn.expression);
 
+            //If the return type is still auto, set the return type of the current function to the expression's type
             if ("auto".equals(returnTypeOfCurrentFunction.lexeme)) {
                 returnTypeOfCurrentFunction = expressionType;
                 functionSymbolTable.lookup(identifierOfCurrentFunction).returnType = expressionType;
             }
 
+            /*
+                If the return type and type of value being returned do not match
+                (unless returning int in a float function), throw an exception
+            */
             if (!returnTypeOfCurrentFunction.lexeme.equals(expressionType.lexeme)) {
                 if (!("float".equals(returnTypeOfCurrentFunction.lexeme) && "int".equals(expressionType.lexeme))) {
                     throwException("Returning type " + expressionType.lexeme + ", required: " + returnTypeOfCurrentFunction.lexeme);
@@ -274,14 +387,18 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTVariableDeclaration node semantic visitor
+     * @param astVariableDeclaration node to visit
+     */
     @Override
     public void visit(ASTVariableDeclaration astVariableDeclaration) throws SemanticException {
-        if (isStruct && ("auto".equals(astVariableDeclaration.type.lexeme)
-                || "auto[]".equals(astVariableDeclaration.type.lexeme))) {
+        //Prevents structs declaring auto type
+        if (isStruct && astVariableDeclaration.type.lexeme.contains("auto")){
             throwException("Can not use auto type for variable declarations in structs");
         }
 
-        //If declaring an array, check whether it's size is of type integer
+        //If declaring an array, verifies that the type of the size expression is of type integer
         if (astVariableDeclaration.identifier instanceof ASTArrayIndexIdentifier) {
             visit(((ASTArrayIndexIdentifier) astVariableDeclaration.identifier).index);
 
@@ -293,14 +410,25 @@ public class SemanticVisitor implements ASTVisitor {
         Type declaredType = astVariableDeclaration.type;
 
         if (variableSymbolTable.lookupType(astVariableDeclaration.identifier.identifier) != null) {
+            //Checks whether variable has already been declared; if yes, throw exception
             throwException("Variable " + astVariableDeclaration.identifier.identifier + " has already been declared");
         } else {
+            //Variable and initialisation can be split so expression can be null
             if (astVariableDeclaration.expression != null) {
                 visit(astVariableDeclaration.expression);
 
                 //If an array is being declared of type auto (auto[]), change type
                 if (astVariableDeclaration.type instanceof Array && expressionType instanceof Array) {
                     if ("auto".equals(((Array) astVariableDeclaration.type).arrayType.lexeme)) {
+                        /*
+                            Case when declaring array of type auto (auto[]) - changes type to type of array
+
+                            Example:
+
+                            let x[3]:auto = { 3, 4, 5 }
+                            (not let x: auto = { 3, 4, 5 })
+                         */
+
                         declaredType = new Array(-1, ((Array) expressionType).arrayType);
                     } else {
                         if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
@@ -309,6 +437,19 @@ public class SemanticVisitor implements ASTVisitor {
                     }
                 } else {
                     if ("auto".equals(astVariableDeclaration.type.lexeme)) {
+                        /*
+                            Resolves auto type when declaring a variable with type auto
+
+                            Examples:
+
+                            let x:auto = { 3, 4, 5 }
+                            (not let x[3]: auto = { 3, 4, 5 })
+
+                            or
+
+                            let x: auto = 3;
+                         */
+
                         declaredType = expressionType;
                     } else {
                         if (!expressionType.lexeme.equals(astVariableDeclaration.type.lexeme)) {
@@ -324,10 +465,15 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTWhile node semantic visitor
+     * @param astWhile node to visit
+     */
     @Override
     public void visit(ASTWhile astWhile) throws SemanticException {
         visit(astWhile.conditionExpression);
 
+        //Verifies that the while condition is boolean
         if (!"bool".equals(expressionType.lexeme)) {
             throwException("Condition expression requires bool type");
         }
@@ -335,8 +481,17 @@ public class SemanticVisitor implements ASTVisitor {
         visit(astWhile.loopedBlock);
     }
 
+    /**
+     * ASTExpression node semantic visitor
+     * @param astExpression node to visit
+     */
     @Override
     public void visit(ASTExpression astExpression) throws SemanticException {
+        /*
+            Note that children of the ASTIdentifier node
+            ASTStruct... and ASTArrayIndexIdentifier) MUST be placed above ASTIdentifier
+         */
+
         if (astExpression instanceof ASTBinaryOperator) {
             visit((ASTBinaryOperator) astExpression);
         } else if (astExpression instanceof ASTFunctionCall) {
@@ -360,6 +515,10 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTBinaryOperator node semantic visitor
+     * @param operator node to visit
+     */
     @Override
     public void visit(ASTBinaryOperator operator) throws SemanticException {
         String type1;
@@ -397,24 +556,65 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * Checks whether type is primitive (not array and not struct)
+     * @param type type to check
+     * @return true if the type is primitive
+     */
     private boolean isPrimitive(String type) {
         List<String> primitiveTypes = Arrays.asList("int", "float", "string", "bool", "char");
         return primitiveTypes.contains(type);
     }
 
+    /**
+     * Verifies that type1 and type2 contain either one of the two specified literals
+     *
+     * Example:
+     *
+     * Verifying that;
+     *
+     * variable1 is of type float and variable2 is of type int
+     * OR
+     * variable1 is of type int and variable2 is of type float
+     *
+     * @param typeLiteral first type required
+     * @param typeLiteral2 second type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if variable types correspond to the opposite of each other (and match the type literals specified)
+     */
     private boolean checkSymmetrical(String typeLiteral, String typeLiteral2, String type1, String type2) {
         return (typeLiteral.equals(type1) && typeLiteral2.equals(type2)) || (typeLiteral2.equals(type1) && typeLiteral.equals(type2));
     }
 
+    /**
+     * Verifies that either type1 or type2 contains the specified type
+     * @param typeLiteral type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if either type1 or type2 matches the required type
+     */
     private boolean checkAny(String typeLiteral, String type1, String type2) {
         return typeLiteral.equals(type1) || typeLiteral.equals(type2);
     }
 
+    /**
+     * Veirifies that both type1 and type2 contain the specified type
+     * @param typeLiteral type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if both type1 and type2 match the required type
+     */
     private boolean checkBoth(String typeLiteral, String type1, String type2) {
         return typeLiteral.equals(type1) && typeLiteral.equals(type2);
     }
 
-    //Addition (ADD)
+    /**
+     * Checks types for addition
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return type of operation
+     */
     private Type checkTypesAdd(String type1, String type2) throws SemanticException {
         Type typeToReturn = null;
 
@@ -439,7 +639,13 @@ public class SemanticVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
-    //Other mathematical operators (MUL, SUB, DIV)
+    /**
+     * Checks types for most mathematical operators (*, -, /)
+     * @param operatorSymbol operator (for exception output)
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return type of operation
+     */
     private Type checkTypesMath(TokenType operatorSymbol, String type1, String type2) throws SemanticException {
         Type typeToReturn = null;
 
@@ -456,7 +662,12 @@ public class SemanticVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
-    //Equality operators (NE/CMP)
+    /**
+     * Checks type for equality operators (==, !=)
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return type of operation
+     */
     private Type checkTypesEquality(String type1, String type2) throws SemanticException {
         if (isPrimitive(type1) && isPrimitive(type2)) {
             if (checkSymmetrical("int", "float", type1, type2) || type1.equals(type2)) {
@@ -468,7 +679,12 @@ public class SemanticVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
-    //Comparison operators (GT/LT/GTE/LTE)
+    /**
+     * Checks type of comparison operators (<, >, <=, >=)
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return type of operation
+     */
     private Type checkTypesComp(String type1, String type2) throws SemanticException {
         if (isPrimitive(type1) && isPrimitive(type2)) {
             //Allow comparisons between two strings
@@ -492,7 +708,12 @@ public class SemanticVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
-    //Logic operators (AND/OR)
+    /**
+     * Checks type of logic operators (and, or)
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return type of operation
+     */
     private Type checkTypesLogic(String type1, String type2) throws SemanticException {
         if (!checkBoth("bool", type1, type2)) {
             throwException("Bad operand types " + type1 + " and " + type2);
@@ -501,11 +722,18 @@ public class SemanticVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
+    /**
+     * ASTFunctionCall node semantic visitor
+     * @param astFunctionCall node to visit
+     */
     @Override
     public void visit(ASTFunctionCall astFunctionCall) throws SemanticException {
         StringBuilder stringBuilder = new StringBuilder(astFunctionCall.identifier.identifier);
 
-        //Need to loop again to get the types
+        /*
+            Need to loop again to get the types
+            (to create the identifier, since it needs to contain the types due to function overloading)
+        */
         for (ASTExpression expression : astFunctionCall.parameters) {
             visit(expression);
             stringBuilder.append(expressionType.lexeme);
@@ -532,10 +760,15 @@ public class SemanticVisitor implements ASTVisitor {
 
             expressionType = declaredFunction.returnType;
         } else {
+            //If declaredFunction is null, then the function has not been declared
             throwException("Cannot resolve function " + astFunctionCall.identifier.identifier);
         }
     }
 
+    /**
+     * ASTIdentifier node semantic visitor
+     * @param astIdentifier node to visit
+     */
     @Override
     public void visit(ASTIdentifier astIdentifier) throws SemanticException {
         Type identifierType = variableSymbolTable.lookupType(astIdentifier.identifier);
@@ -547,6 +780,10 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTArrayIndexIdentifier node semantic visitor
+     * @param astArrayIndexIdentifier node to visit
+     */
     @Override
     public void visit(ASTArrayIndexIdentifier astArrayIndexIdentifier) throws SemanticException {
         visit(astArrayIndexIdentifier.index);
@@ -570,6 +807,10 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTLiteral node semantic visitor
+     * @param astLiteral node to visit
+     */
     @Override
     public void visit(ASTLiteral astLiteral) {
         if ("bool".equals(astLiteral.type)) {
@@ -585,6 +826,10 @@ public class SemanticVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTArrayLiteral node semantic visitor
+     * @param astArrayLiteral node to visit
+     */
     @Override
     public void visit(ASTArrayLiteral astArrayLiteral) throws SemanticException {
         Array arrayType = null;
@@ -602,10 +847,6 @@ public class SemanticVisitor implements ASTVisitor {
                     }
                 }
             } else {
-                if (expressionType instanceof Array) {
-                    throwException ("Multidimensional arrays are not supported");
-                }
-
                 arrayType = new Array (size, expressionType);
             }
         }
@@ -613,25 +854,36 @@ public class SemanticVisitor implements ASTVisitor {
         expressionType = arrayType;
     }
 
+    /**
+     * ASTUnary node semantic visitor
+     * @param astUnary node to visit
+     */
     @Override
     public void visit(ASTUnary astUnary) throws SemanticException {
         visit(astUnary.expression);
 
         if (astUnary.unaryType == TokenType.SUB) {
+            //Unary minus can only be used with float and int types
             if (!("float".equals(expressionType.lexeme) || "int".equals(expressionType.lexeme))) {
                 throwException("Unary '-' can only be used with float and integer types");
             }
         } else {
+            //Not can only be used with boolean types
             if (!"bool".equals(expressionType.lexeme)) {
                 throwException("Not can only be used with boolean types");
             }
         }
     }
 
+    /**
+     * ASTStruct node semantic visitor
+     * @param astStruct node to visit
+     */
     @Override
     public void visit(ASTStruct astStruct) throws SemanticException {
         isStruct = true;
 
+        //Prevents two struct with the same name
         if (registeredStructs.containsKey(astStruct.structName.identifier)) {
             throwException("Duplicate struct: " + astStruct.structName.identifier);
         }
@@ -657,6 +909,10 @@ public class SemanticVisitor implements ASTVisitor {
         isStruct = false;
     }
 
+    /**
+     * ASTStructVariableSelector node semantic visitor
+     * @param astStructVariableSelector node to visit
+     */
     @Override
     public void visit(ASTStructVariableSelector astStructVariableSelector) throws SemanticException {
         //Get struct type
@@ -670,7 +926,7 @@ public class SemanticVisitor implements ASTVisitor {
         ASTStruct struct = registeredStructs.get(type.lexeme);
 
         if (struct == null) {
-            throwException("Could not resolve struct type " + type.lexeme);
+            throwException(type.lexeme + " is not a struct type");
         }
 
         //Set current scope to only the struct scope
@@ -689,6 +945,10 @@ public class SemanticVisitor implements ASTVisitor {
         functionSymbolTable = oldFunctionSymbolTable;
     }
 
+    /**
+     * ASTStructFunctionSelector node semantic visitor
+     * @param astStructFunctionSelector node to visit
+     */
     @Override
     public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws SemanticException {
         //Get struct type
@@ -702,7 +962,7 @@ public class SemanticVisitor implements ASTVisitor {
         ASTStruct struct = registeredStructs.get(type.lexeme);
 
         if (struct == null) {
-            throwException("Could not resolve struct type " + type.lexeme);
+            throwException(type.lexeme + " is not a struct type");
         }
 
         //Set current scope to only the struct scope
