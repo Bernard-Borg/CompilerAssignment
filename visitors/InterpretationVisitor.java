@@ -20,6 +20,10 @@ public class InterpretationVisitor implements ASTVisitor {
 
     private final Map<String, ASTStruct> registeredStructs;
 
+    /**
+     * Constructs the interpretation visitor
+     * @param program the program to visit
+     */
     public InterpretationVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
         functionSymbolTable = new FunctionSymbolTable();
@@ -28,10 +32,17 @@ public class InterpretationVisitor implements ASTVisitor {
         this.program = program;
     }
 
+    /**
+     * Begins the interpretation process
+     */
     public void interpret() throws Exception {
         visit(program);
     }
 
+    /**
+     * ASTProgram node interpretation visitor
+     * @param astProgram abstract syntax tree of program
+     */
     @Override
     public void visit(ASTProgram astProgram) throws Exception {
         //Global scopes
@@ -43,6 +54,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTStatement node interpretation visitor
+     * @param statement node to visit
+     */
     @Override
     public void visit(ASTStatement statement) throws Exception {
         if (statement instanceof ASTAssignment) {
@@ -68,6 +83,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTAssignment node interpretation visitor
+     * @param astAssignment node to visit
+     */
     @Override
     public void visit(ASTAssignment astAssignment) throws Exception {
         if (astAssignment.identifier instanceof ASTStructVariableSelector) {
@@ -140,6 +159,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTBlock node interpretation visitor
+     * @param astBlock node to visit
+     */
     @Override
     public void visit(ASTBlock astBlock) throws Exception {
         variableSymbolTable.push();
@@ -159,6 +182,10 @@ public class InterpretationVisitor implements ASTVisitor {
         functionSymbolTable.pop();
     }
 
+    /**
+     * ASTFor node interpretation visitor
+     * @param astFor node to visit
+     */
     @Override
     public void visit(ASTFor astFor) throws Exception {
         variableSymbolTable.push();
@@ -185,11 +212,19 @@ public class InterpretationVisitor implements ASTVisitor {
         variableSymbolTable.pop();
     }
 
+    /**
+     * ASTFunctionDeclaration node interpretation visitor
+     * @param astFunctionDeclaration node to visit
+     */
     @Override
     public void visit(ASTFunctionDeclaration astFunctionDeclaration) {
         functionSymbolTable.registerFunction(astFunctionDeclaration);
     }
 
+    /**
+     * ASTIf node interpretation visitor
+     * @param astIf node to visit
+     */
     @Override
     public void visit(ASTIf astIf) throws Exception {
         visit(astIf.conditionExpression);
@@ -209,6 +244,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTPrint node interpretation visitor
+     * @param astPrint node to visit
+     */
     @Override
     public void visit(ASTPrint astPrint) throws Exception {
         visit(astPrint.expression);
@@ -220,6 +259,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTReturn node interpretation visitor
+     * @param astReturn node to visit
+     */
     @Override
     public void visit(ASTReturn astReturn) throws Exception {
         visit(astReturn.expression);
@@ -234,6 +277,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTVariableDeclaration node interpretation visitor
+     * @param astVariableDeclaration node to visit
+     */
     @Override
     public void visit(ASTVariableDeclaration astVariableDeclaration) throws Exception {
         if (astVariableDeclaration.identifier instanceof ASTArrayIndexIdentifier) {
@@ -306,11 +353,16 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTWhile node interpretation visitor
+     * @param astWhile node to visit
+     */
     @Override
     public void visit(ASTWhile astWhile) throws Exception {
         while (true) {
             visit(astWhile.conditionExpression);
 
+            //If value of condition is false, stop loop
             if (!(Boolean) expressionValue) {
                 break;
             }
@@ -321,6 +373,10 @@ public class InterpretationVisitor implements ASTVisitor {
         visit(astWhile.loopedBlock);
     }
 
+    /**
+     * ASTExpression node interpretation visitor
+     * @param astExpression node to visit
+     */
     @Override
     public void visit(ASTExpression astExpression) throws Exception {
         if (astExpression instanceof ASTBinaryOperator) {
@@ -344,6 +400,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTBinaryOperator node interpretation visitor
+     * @param operator node to visit
+     */
     @Override
     public void visit(ASTBinaryOperator operator) throws Exception {
         visit(operator.expression1);
@@ -397,18 +457,57 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * Verifies that type1 and type2 contain either one of the two specified literals
+     *
+     * Example:
+     *
+     * Verifying that;
+     *
+     * variable1 is of type float and variable2 is of type int
+     * OR
+     * variable1 is of type int and variable2 is of type float
+     *
+     * @param typeLiteral first type required
+     * @param typeLiteral2 second type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if variable types correspond to the opposite of each other (and match the type literals specified)
+     */
     private boolean checkSymmetrical(String typeLiteral, String typeLiteral2, String type1, String type2) {
         return (typeLiteral.equals(type1) && typeLiteral2.equals(type2)) || (typeLiteral2.equals(type1) && typeLiteral.equals(type2));
     }
 
+    /**
+     * Verifies that either type1 or type2 contains the specified type
+     * @param typeLiteral type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if either type1 or type2 matches the required type
+     */
     private boolean checkAny(String typeLiteral, String type1, String type2) {
         return typeLiteral.equals(type1) || typeLiteral.equals(type2);
     }
 
+    /**
+     * Verifies that both type1 and type2 contain the specified type
+     * @param typeLiteral type required
+     * @param type1 first variable type
+     * @param type2 second variable type
+     * @return true if both type1 and type2 match the required type
+     */
     private boolean checkBoth(String typeLiteral, String type1, String type2) {
         return typeLiteral.equals(type1) && typeLiteral.equals(type2);
     }
 
+    /**
+     * Performs addition (+) operation
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type add(String type1, String type2, Object value1, Object value2) {
         Type typeToReturn = null;
 
@@ -441,6 +540,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
+    /**
+     * Performs subtraction (-) operation
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type subtract(String type1, String type2, Object value1, Object value2) {
         Type typeToReturn = null;
 
@@ -461,6 +568,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
+    /**
+     * Performs multiplication (*) operation
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type multiply(String type1, String type2, Object value1, Object value2) {
         Type typeToReturn = null;
 
@@ -481,6 +596,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
+    /**
+     * Performs division (/) operation
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type divide(String type1, String type2, Object value1, Object value2) {
         Type typeToReturn = null;
 
@@ -501,6 +624,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return typeToReturn;
     }
 
+    /**
+     * Performs equality (==) check
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type compare(String type1, String type2, Object value1, Object value2) {
         if ("int".equals(type1) && "float".equals(type2)){
             expressionValue = value2.equals(((Integer) value1).floatValue());
@@ -513,6 +644,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
+    /**
+     * Performs greater than (>) comparison
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type greaterThan(String type1, String type2, Object value1, Object value2) {
         if ("int".equals(type1) && "float".equals(type2)){
             expressionValue = ((Float) value2 < ((Integer) value1).floatValue());
@@ -531,6 +670,14 @@ public class InterpretationVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
+    /**
+     * Performs less than (<) comparison
+     * @param type1 type of first variable
+     * @param type2 type of second variable
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type lessThan(String type1, String type2, Object value1, Object value2) {
         if ("int".equals(type1) && "float".equals(type2)){
             expressionValue = (Float) value2 > ((Integer) value1).floatValue();
@@ -549,18 +696,34 @@ public class InterpretationVisitor implements ASTVisitor {
         return Type.BOOL;
     }
 
+    /**
+     * Performs and operation
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type and(Object value1, Object value2) {
         //Is it guaranteed to be boolean so no if statements needed
         expressionValue = (Boolean) value1 && (Boolean) value2;
         return Type.BOOL;
     }
 
+    /**
+     * Performs or operation
+     * @param value1 value of first variable
+     * @param value2 value of second variable
+     * @return type of operation
+     */
     private Type or(Object value1, Object value2) {
         //Is it guaranteed to be boolean so no if statements needed
         expressionValue = (Boolean) value1 || (Boolean) value2;
         return Type.BOOL;
     }
 
+    /**
+     * ASTFunctionCall node interpretation visitor
+     * @param astFunctionCall node to visit
+     */
     @Override
     public void visit(ASTFunctionCall astFunctionCall) throws Exception {
         StringBuilder stringBuilder = new StringBuilder(astFunctionCall.identifier.identifier);
@@ -602,6 +765,10 @@ public class InterpretationVisitor implements ASTVisitor {
         variableSymbolTable.pop();
     }
 
+    /**
+     * ASTIdentifier node interpretation visitor
+     * @param astIdentifier node to visit
+     */
     @Override
     public void visit(ASTIdentifier astIdentifier) throws Exception {
         TypeValuePair variable = variableSymbolTable.lookup(astIdentifier.identifier);
@@ -616,6 +783,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTArrayIndexIdentifier node interpretation visitor
+     * @param astArrayIndexIdentifier node to visit
+     */
     @Override
     public void visit(ASTArrayIndexIdentifier astArrayIndexIdentifier) throws Exception {
         visit(astArrayIndexIdentifier.index);
@@ -635,6 +806,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTLiteral node interpretation visitor
+     * @param astLiteral node to visit
+     */
     @Override
     public void visit(ASTLiteral astLiteral) {
         if ("bool".equals(astLiteral.type)) {
@@ -660,6 +835,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTArrayLiteral node interpretation visitor
+     * @param astArrayLiteral node to visit
+     */
     @Override
     public void visit(ASTArrayLiteral astArrayLiteral) throws Exception {
         int size = astArrayLiteral.arrayMembers.size();
@@ -683,6 +862,10 @@ public class InterpretationVisitor implements ASTVisitor {
         expressionValue = arrayValues.toArray();
     }
 
+    /**
+     * ASTUnary node interpretation visitor
+     * @param astUnary node to visit
+     */
     @Override
     public void visit(ASTUnary astUnary) throws Exception {
         visit(astUnary.expression);
@@ -701,6 +884,10 @@ public class InterpretationVisitor implements ASTVisitor {
         }
     }
 
+    /**
+     * ASTStruct node interpretation visitor
+     * @param astStruct node to visit
+     */
     @Override
     public void visit(ASTStruct astStruct) throws Exception {
         //Set current scope to only the struct scope
@@ -724,6 +911,10 @@ public class InterpretationVisitor implements ASTVisitor {
         registeredStructs.put(astStruct.structName.identifier, astStruct);
     }
 
+    /**
+     * ASTStructVariableSelector node interpretation visitor
+     * @param astStructVariableSelector node to visit
+     */
     @Override
     public void visit(ASTStructVariableSelector astStructVariableSelector) throws Exception {
         //Get struct type
@@ -748,6 +939,10 @@ public class InterpretationVisitor implements ASTVisitor {
         functionSymbolTable = oldFunctionSymbolTable;
     }
 
+    /**
+     * ASTStructFunctionSelector node interpretation visitor
+     * @param astStructFunctionSelector node to visit
+     */
     @Override
     public void visit(ASTStructFunctionSelector astStructFunctionSelector) throws Exception {
         //Get struct type

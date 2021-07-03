@@ -599,7 +599,7 @@ public class SemanticVisitor implements ASTVisitor {
     }
 
     /**
-     * Veirifies that both type1 and type2 contain the specified type
+     * Verifies that both type1 and type2 contain the specified type
      * @param typeLiteral type required
      * @param type1 first variable type
      * @param type2 second variable type
