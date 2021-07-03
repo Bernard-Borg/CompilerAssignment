@@ -10,8 +10,13 @@ import java.util.Set;
 
 @SuppressWarnings("rawtypes")
 public class Parser {
+    //Stores the lexer (to call getNextToken())
     private final Lexer lexer;
+
+    //Stores the parser lookahead
     private Token lookahead;
+
+    //Stores whether or not the current lookahead has already been consumed
     private boolean lookaheadUsed = true;
 
     //Used to prevent variable declarations with complex types in structs
@@ -20,11 +25,18 @@ public class Parser {
     //Stores the structs which exist (to change identifier to type)
     private final Set<String> definedStructs;
 
+    /**
+     * Main parser constructor
+     * @param lexer the lexer that the parser will use
+     */
     public Parser(Lexer lexer) {
         this.lexer = lexer;
         definedStructs = new HashSet<>();
     }
 
+    /**
+     * Utility method to update the lookahead, which handles cases when the current lookahead hasn't been consumed
+     */
     private void updateLookahead() throws Exception {
         if (lookaheadUsed) {
             lookahead = lexer.getNextToken();
@@ -32,11 +44,19 @@ public class Parser {
         }
     }
 
+    /**
+     * Utility method to throw a parse exception
+     * @param message message of the exception
+     */
     private void throwException(String message) throws ParseException {
         throw new ParseException(message + " at line " + lexer.lineNumber);
     }
 
-    //Checks whether the current lookahead is of the required token type
+    /**
+     * Checks whether the current lookahead is of the required token type
+     * @param tokenType token type to check
+     * @return true if lookahead matches specified tokentype, false otherwise
+     */
     private boolean isLookahead(TokenType tokenType) {
         if (lookahead == null)
             return false;
@@ -44,7 +64,11 @@ public class Parser {
         return tokenType == lookahead.tokenType;
     }
 
-    //Matches next token to the required token, throws exception if they don't match
+    /**
+     * Matches next token to the required token, throws exception if they don't match
+     * @param tokenType token type to match
+     * @throws Exception if lookahead does not match specified token type
+     */
     private void assertToken(TokenType tokenType) throws Exception {
         updateLookahead();
 
@@ -57,6 +81,10 @@ public class Parser {
         }
     }
 
+    /**
+     * Method which starts the parsing
+     * @return returns the full program AST
+     */
     public ASTProgram parseProgram() throws Exception {
         List<ASTStatement> statementList = new ArrayList<>();
         ASTStatement statement;
@@ -74,6 +102,10 @@ public class Parser {
         return new ASTProgram(statementList);
     }
 
+    /**
+     * Parses statements
+     * @return statement node
+     */
     private ASTStatement parseStatement() throws Exception {
         updateLookahead();
 
@@ -87,6 +119,7 @@ public class Parser {
                 assertToken(TokenType.SEMICOLON);
                 return variableDeclaration;
             case IDENTIFIER:
+                //If the identifier resolves to a complex type, then parse as function declaration instead
                 if (definedStructs.contains(((Word) lookahead).lexeme)) {
                     return parseFunctionDeclaration();
                 }
@@ -120,12 +153,20 @@ public class Parser {
         }
     }
 
+    /**
+     * Parses print statement
+     * @return ASTPrint node
+     */
     private ASTPrint parsePrintStatement() throws Exception {
         assertToken(TokenType.PRINT);
         ASTExpression expression = parseExpression();
         return new ASTPrint(expression);
     }
 
+    /**
+     * Parses expression (relational operators)
+     * @return ASTExpression node
+     */
     private ASTExpression parseExpression() throws Exception {
         ASTExpression simpleExpression1 = parseSimpleExpression();
         List list = new ArrayList();
@@ -153,6 +194,12 @@ public class Parser {
         return resolveList(simpleExpression1, list);
     }
 
+    /**
+     * Creates binary operators from a list of expressions
+     * @param firstExpression first expression
+     * @param list list of expressions
+     * @return ASTExpression node
+     */
     private ASTExpression resolveList(ASTExpression firstExpression, List list) {
         if (list.isEmpty()) {
             return firstExpression;
@@ -176,12 +223,21 @@ public class Parser {
         }
     }
 
+    /**
+     * Utility method to checks if token is a relational operator (<, >, <=, >=, ==, !=)
+     * @param token token to check
+     * @return true if token is a relational operator, false otherwise
+     */
     private boolean isRelationalOperator(Token token) {
         return token.tokenType == TokenType.GTE || token.tokenType == TokenType.GT ||
                 token.tokenType == TokenType.LTE || token.tokenType == TokenType.LT ||
                 token.tokenType == TokenType.CMP || token.tokenType == TokenType.NE;
     }
 
+    /**
+     * Parses simple expressions (additive operators)
+     * @return ASTExpression node
+     */
     private ASTExpression parseSimpleExpression() throws Exception {
         ASTExpression term1 = parseTerm();
         List list = new ArrayList();
@@ -209,10 +265,19 @@ public class Parser {
         return resolveList(term1, list);
     }
 
+    /**
+     * Utility method to check if a token is an additive operator (+, -, or)
+     * @param token token to check
+     * @return true if token is an additive operator, false otherwise
+     */
     private boolean isAdditiveOperator(Token token) {
         return token.tokenType == TokenType.ADD || token.tokenType == TokenType.SUB || token.tokenType == TokenType.OR;
     }
 
+    /**
+     * Parses terms (multiplicative operators)
+     * @return ASTExpression node
+     */
     private ASTExpression parseTerm() throws Exception {
         ASTExpression factor1 = parseFactor();
         List list = new ArrayList();
@@ -240,10 +305,19 @@ public class Parser {
         return resolveList(factor1, list);
     }
 
+    /**
+     * Utility method to check if token is a multiplicative operator (*, /, and)
+     * @param token token to check
+     * @return true if token is a multiplicative operator, false otherwise
+     */
     private boolean isMultiplicativeOperator(Token token) {
         return token.tokenType == TokenType.MUL || token.tokenType == TokenType.DIV || token.tokenType == TokenType.AND;
     }
 
+    /**
+     * Parses struct
+     * @return ASTStruct node
+     */
     private ASTStruct parseStruct() throws Exception {
         isStruct = true;
         List<ASTStatement> statementsList = new ArrayList<>();
@@ -268,12 +342,14 @@ public class Parser {
                 break;
             }
 
+            //Structs can only have variable declarations or function declarations
             if (isLookahead(TokenType.LET)) {
                 statementsList.add(parseVariableDeclaration());
                 assertToken(TokenType.SEMICOLON);
             } else if (isLookahead(TokenType.TYPE)) {
                 statementsList.add(parseFunctionDeclaration());
             } else if (isLookahead(TokenType.IDENTIFIER)) {
+                //Return type of struct function can be another struct, but not the current one
                 if (definedStructs.contains(((Word) lookahead).lexeme)) {
                     statementsList.add(parseFunctionDeclaration());
                 } else {
@@ -289,14 +365,16 @@ public class Parser {
         return new ASTStruct(structName, statementsList);
     }
 
+    /**
+     * Parses factors
+     * @return ASTExpression node
+     */
     private ASTExpression parseFactor() throws Exception {
         updateLookahead();
 
         if (lookahead == null) {
             throwException("Unexpected end of file, was expecting an expression");
         }
-
-        lookaheadUsed = true;
 
         switch (lookahead.tokenType) {
             case NUM:
@@ -305,18 +383,20 @@ public class Parser {
             case TRUE:
             case FALSE:
             case CHAR:
+                lookaheadUsed = true;
                 return new ASTLiteral(lookahead);
             case OPENCURLYBRACKET:
-                lookaheadUsed = false;
                 return parseArrayLiteral();
             case OPENROUNDBRACKET:
-                lookaheadUsed = false;
                 return parseSubExpression();
             case SUB:
             case NOT:
+                lookaheadUsed = true;
                 return parseUnary();
             case IDENTIFIER:
                 Token lookaheadTemp = lookahead;
+                lookaheadUsed = true;
+
                 updateLookahead();
 
                 if (isLookahead(TokenType.OPENROUNDBRACKET)) {
@@ -334,6 +414,10 @@ public class Parser {
         }
     }
 
+    /**
+     * Parses identifier which can be used by the ASTAssignment node (as in the EBNF)
+     * @return ASTIdentifier node
+     */
     private ASTIdentifier parseAssignmentIdentifier() throws Exception {
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
         lookaheadUsed = true;
@@ -344,6 +428,12 @@ public class Parser {
             throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.EQ);
         }
 
+        /*
+            An assignment statement can only have
+            - an array index identifier node,
+            - a struct selector node or
+            - a regular identifier
+        */
         if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
             identifier = parseArrayIndexIdentifier(identifier);
         } else if (isLookahead(TokenType.DOT)) {
@@ -357,6 +447,10 @@ public class Parser {
         return identifier;
     }
 
+    /**
+     * Parses identifier which can be used by the ASTVariableDeclaration node (as in the EBNF)
+     * @return ASTIdentifier node
+     */
     private ASTIdentifier parseDeclarationIdentifier() throws Exception {
         ASTIdentifier identifier = new ASTIdentifier((Word) lookahead);
 
@@ -366,6 +460,7 @@ public class Parser {
             throwException("Unexpected end of file, was expecting " + TokenType.OPENSQUAREBRACKET + " or " + TokenType.COLON);
         }
 
+        //Declaration identifier can only have array index identifier or regular identifier
         if (isLookahead(TokenType.OPENSQUAREBRACKET)) {
             identifier = parseArrayIndexIdentifier(identifier);
         }
@@ -373,6 +468,11 @@ public class Parser {
         return identifier;
     }
 
+    /**
+     * Parses array index identifier (array with size or array with index)
+     * @param identifier identifier of array
+     * @return ASTArrayIndexIdentifier node
+     */
     private ASTArrayIndexIdentifier parseArrayIndexIdentifier(ASTIdentifier identifier) throws Exception {
         ASTExpression index;
 
@@ -383,6 +483,11 @@ public class Parser {
         return new ASTArrayIndexIdentifier(identifier, index);
     }
 
+    /**
+     * Parses struct selector (like robot1.height)
+     * @param structIdentifier struct name
+     * @return ASTStructVariableSelector or ASTStructFunctionSelector node
+     */
     private ASTIdentifier parseStructSelector(ASTIdentifier structIdentifier) throws Exception {
         ASTFunctionCall functionCall;
 
@@ -401,6 +506,11 @@ public class Parser {
         }
     }
 
+    /**
+     * Parses function call
+     * @param functionIdentifier function name
+     * @return ASTFunctionCall node
+     */
     private ASTFunctionCall parseFunctionCall(ASTIdentifier functionIdentifier) throws Exception {
         assertToken(TokenType.OPENROUNDBRACKET);
         List<ASTExpression> parameters = null;
@@ -421,7 +531,11 @@ public class Parser {
         return new ASTFunctionCall(functionIdentifier, parameters);
     }
 
-    //Previously was parseActualParameters, changed name so that array literal can also use it
+    /**
+     * Was parseActionParameters in TeaLang 1, changed name since the parseArrayLiteral method also uses it now
+     * Parses a comma-separated list of expressions
+     * @return List of ASTExpression nodes
+     */
     private List<ASTExpression> parseExpressionList() throws Exception {
         List<ASTExpression> parameterList = new ArrayList<>();
         ASTExpression parameter = parseExpression();
@@ -445,6 +559,10 @@ public class Parser {
         return parameterList;
     }
 
+    /**
+     * Parses array literal
+     * @return ASTArrayLiteral node
+     */
     private ASTArrayLiteral parseArrayLiteral() throws Exception {
         assertToken(TokenType.OPENCURLYBRACKET);
         updateLookahead();
@@ -463,6 +581,10 @@ public class Parser {
         }
     }
 
+    /**
+     * Parses sub expression (for example, (3 * 3))
+     * @return ASTExpression node
+     */
     private ASTExpression parseSubExpression() throws Exception {
         assertToken(TokenType.OPENROUNDBRACKET);
         ASTExpression expression = parseExpression();
@@ -470,12 +592,20 @@ public class Parser {
         return expression;
     }
 
+    /**
+     * Parses unary expression
+     * @return ASTUnary node
+     */
     private ASTUnary parseUnary() throws Exception {
         TokenType unaryType = lookahead.tokenType;
         ASTExpression expression = parseExpression();
         return new ASTUnary(unaryType, expression);
     }
 
+    /**
+     * Parses if statement
+     * @return ASTIf node
+     */
     private ASTIf parseIfStatement() throws Exception {
         assertToken(TokenType.IF);
         assertToken(TokenType.OPENROUNDBRACKET);
@@ -494,6 +624,10 @@ public class Parser {
         return new ASTIf(conditionExpression, trueBlock, falseBlock);
     }
 
+    /**
+     * Parses for statement
+     * @return ASTFor node
+     */
     private ASTFor parseForStatement() throws Exception {
         ASTVariableDeclaration variableDeclaration = null;
         ASTAssignment assignment = null;
@@ -531,6 +665,10 @@ public class Parser {
         return new ASTFor(variableDeclaration, conditionExpression, assignment, loopedBlock);
     }
 
+    /**
+     * Parses while node
+     * @return ASTWhile node
+     */
     private ASTWhile parseWhileStatement() throws Exception {
         assertToken(TokenType.WHILE);
         assertToken(TokenType.OPENROUNDBRACKET);
@@ -541,6 +679,10 @@ public class Parser {
         return new ASTWhile(conditionExpression, loopedBlock);
     }
 
+    /**
+     * Parses block
+     * @return ASTBlock node
+     */
     private ASTBlock parseBlock() throws Exception {
         assertToken(TokenType.OPENCURLYBRACKET);
 
@@ -566,12 +708,20 @@ public class Parser {
         return new ASTBlock(statementList);
     }
 
+    /**
+     * Parses return statement
+     * @return ASTReturn node
+     */
     private ASTReturn parseReturnStatement() throws Exception {
         assertToken(TokenType.RETURN);
         ASTExpression expression = parseExpression();
         return new ASTReturn(expression);
     }
 
+    /**
+     * Parses function declaration
+     * @return ASTFunctionDeclaration node
+     */
     private ASTFunctionDeclaration parseFunctionDeclaration() throws Exception {
         Type returnType = parseType(false, false);
 
@@ -598,6 +748,10 @@ public class Parser {
         return new ASTFunctionDeclaration(returnType, functionName, parameterList, functionBlock);
     }
 
+    /**
+     * Parses list of parameters
+     * @return List of ASTParameter nodes
+     */
     private List<ASTParameter> parseFormalParameters() throws Exception {
         List<ASTParameter> parameterList = new ArrayList<>();
         ASTParameter parameter = parseParameter();
@@ -621,6 +775,10 @@ public class Parser {
         return parameterList;
     }
 
+    /**
+     * Parses a single parameter
+     * @return ASTParameter node
+     */
     private ASTParameter parseParameter() throws Exception {
         boolean isArray = false;
 
@@ -646,6 +804,10 @@ public class Parser {
         return new ASTParameter(identifier, parameterType);
     }
 
+    /**
+     * Parses assignment node
+     * @return ASTAssignment node
+     */
     private ASTAssignment parseAssignment() throws Exception {
         ASTIdentifier identifier = parseAssignmentIdentifier();
 
@@ -656,6 +818,13 @@ public class Parser {
         return new ASTAssignment(identifier, expression);
     }
 
+    /**
+     * Parses type (primitive type or complex type if lookahead is an identifier)
+     * @param isArray flag whether the type is an array or not
+     * @param checkIfStruct flag whether method should care whether it is a struct
+     *                      (variable declaration sets true since it should not be a complex type if in a struct)
+     * @return Type
+     */
     private Type parseType(boolean isArray, boolean checkIfStruct) throws Exception {
         Type type = null;
 
@@ -679,6 +848,7 @@ public class Parser {
             throwException("Expected type, got " + lookahead.tokenType);
         }
 
+        //Wraps type in an array if the type if isArray is true
         if (isArray) {
             return new Array(-1, type);
         } else {
@@ -686,6 +856,10 @@ public class Parser {
         }
     }
 
+    /**
+     * Parses variable declaration
+     * @return ASTVariableDeclaration node
+     */
     private ASTVariableDeclaration parseVariableDeclaration() throws Exception {
         assertToken(TokenType.LET);
         assertToken(TokenType.IDENTIFIER);

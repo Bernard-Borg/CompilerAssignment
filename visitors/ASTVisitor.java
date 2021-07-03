@@ -2,6 +2,7 @@ package visitors;
 
 import parser.*;
 
+//Visitor pattern visitor interface
 public interface ASTVisitor {
     void visit(ASTProgram astProgram) throws Exception;
     void visit(ASTStatement statement) throws Exception;

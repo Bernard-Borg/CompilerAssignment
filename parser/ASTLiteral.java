@@ -5,11 +5,16 @@ import lexer.TokenType;
 import lexer.Word;
 import visitors.ASTVisitor;
 
+//ASTNode for primitive literals (not arrays)
 public class ASTLiteral extends ASTExpression {
     public Token token;
     public String type;
 
+    /**
+     * @param token the literal token
+     */
     public ASTLiteral(Token token) {
+        //Setting the literal type
         if (token.tokenType == TokenType.STRING) {
             //Removing the quotation marks for strings
             String lexeme = ((Word) token).lexeme;

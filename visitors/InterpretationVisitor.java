@@ -6,7 +6,6 @@ import semantics.FunctionSymbolTable;
 import semantics.TypeValuePair;
 import semantics.VariableSymbolTable;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
 
 public class InterpretationVisitor implements ASTVisitor {
@@ -19,7 +18,7 @@ public class InterpretationVisitor implements ASTVisitor {
     private Type returnTypeOfCurrentFunction = null;
     private String identifierOfCurrentFunction = "";
 
-    private Map<String, ASTStruct> registeredStructs;
+    private final Map<String, ASTStruct> registeredStructs;
 
     public InterpretationVisitor(ASTProgram program) {
         variableSymbolTable = new VariableSymbolTable();
@@ -71,7 +70,25 @@ public class InterpretationVisitor implements ASTVisitor {
 
     @Override
     public void visit(ASTAssignment astAssignment) throws Exception {
-        if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
+        if (astAssignment.identifier instanceof ASTStructVariableSelector) {
+            TypeValuePair structTypeValuePair = variableSymbolTable.lookup(astAssignment.identifier.identifier);
+
+            ASTStruct struct = ((ASTStruct) structTypeValuePair.value);
+
+            Type type = struct.variableSymbolTable.lookupType(
+                ((ASTStructVariableSelector) astAssignment.identifier).elementIdentifier.identifier
+            );
+
+            visit(astAssignment.expression);
+
+            if ("int".equals(expressionType.lexeme) && "float".equals(type.lexeme)) {
+                expressionValue = ((Integer) expressionValue).floatValue();
+            }
+
+            struct.variableSymbolTable.changeValue(
+                ((ASTStructVariableSelector) astAssignment.identifier).elementIdentifier.identifier, expressionValue
+            );
+        } else if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
             //Handles whenever changing specific array elements
             TypeValuePair typeValuePair = variableSymbolTable.lookup(astAssignment.identifier.identifier);
 
@@ -88,6 +105,10 @@ public class InterpretationVisitor implements ASTVisitor {
                             new Array(((Array) typeValuePair.type).size, expressionType));
                 }
 
+                if ("int".equals(expressionType.lexeme) && "float".equals(((Array) typeValuePair.type).arrayType.lexeme)) {
+                    expressionValue = ((Integer) expressionValue).floatValue();
+                }
+
                 ((Object[]) typeValuePair.value)[index] = expressionValue;
                 variableSymbolTable.changeValue(astAssignment.identifier.identifier, typeValuePair.value);
             }
@@ -95,6 +116,10 @@ public class InterpretationVisitor implements ASTVisitor {
             visit(astAssignment.expression);
 
             Type type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
+
+            if (type.tokenType == TokenType.COMPLEXTYPE) {
+                expressionValue = new ASTStruct((ASTStruct) expressionValue);
+            }
 
             if (type instanceof Array) {
                 if (!(((Array) type).size == ((Array) expressionType).size)) {
@@ -255,6 +280,10 @@ public class InterpretationVisitor implements ASTVisitor {
             if (astVariableDeclaration.expression != null) {
                 visit(astVariableDeclaration.expression);
 
+                if (variableType.tokenType == TokenType.COMPLEXTYPE) {
+                    expressionValue = new ASTStruct((ASTStruct) expressionValue);
+                }
+
                 if ("auto".equals(astVariableDeclaration.type.lexeme)) {
                     variableType = expressionType;
                 } else {
@@ -267,7 +296,7 @@ public class InterpretationVisitor implements ASTVisitor {
             } else {
                 //Initialise struct with its default value (stored in registeredStructs)
                 if (variableType.tokenType == TokenType.COMPLEXTYPE) {
-                    expressionValue = registeredStructs.get(variableType.lexeme);
+                    expressionValue = new ASTStruct(registeredStructs.get(variableType.lexeme));
                 } else {
                     expressionValue = null;
                 }

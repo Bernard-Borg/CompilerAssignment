@@ -1,10 +1,5 @@
 package parser;
 
-import visitors.ASTVisitor;
-
-public class ASTExpression implements ASTNode {
-    @Override
-    public void accept(ASTVisitor visitor) throws Exception {
-        visitor.visit(this);
-    }
-}
+//ASTNode abstract class for expressions (binary operators, function calls, literals, identifiers, etc)
+//It is only used for node hierarchy and has no implementation
+public abstract class ASTExpression implements ASTNode { }

@@ -20,6 +20,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 
+//Visitor to generate XML representation of abstract syntax tree
 public class XMLVisitor implements ASTVisitor {
     public Document xmlDocument;
     private Element currentElement;

@@ -12,6 +12,13 @@ public class ASTStruct extends ASTStatement {
     public VariableSymbolTable variableSymbolTable;
     public FunctionSymbolTable functionSymbolTable;
 
+    public ASTStruct(ASTStruct astStruct) {
+        this.structName = astStruct.structName;
+        this.statementsList = astStruct.statementsList;
+        this.variableSymbolTable = new VariableSymbolTable(astStruct.variableSymbolTable);
+        this.functionSymbolTable = astStruct.functionSymbolTable;
+    }
+
     public ASTStruct (ASTIdentifier structName, List<ASTStatement> statements) {
         this.structName = structName;
 

@@ -88,6 +88,9 @@ public class SemanticVisitor implements ASTVisitor {
         if (astAssignment.identifier instanceof ASTArrayIndexIdentifier) {
             visit((ASTArrayIndexIdentifier) astAssignment.identifier);
             type = expressionType;
+        } else if (astAssignment.identifier instanceof ASTStructVariableSelector) {
+            visit((ASTStructVariableSelector) astAssignment.identifier);
+            type = expressionType;
         } else {
             type = variableSymbolTable.lookupType(astAssignment.identifier.identifier);
         }
@@ -523,9 +526,7 @@ public class SemanticVisitor implements ASTVisitor {
                 declaredFunctionParameterType = declaredFunction.parameterList.get(i).type.lexeme;
 
                 if (!expressionType.lexeme.equals(declaredFunctionParameterType)) {
-                    if (!("int".equals(expressionType.lexeme) && "float".equals(declaredFunctionParameterType))) {
-                        throwException("Incorrect parameter type, required " + declaredFunctionParameterType + ", got " + expressionType.lexeme);
-                    }
+                    throwException("Incorrect parameter type, required " + declaredFunctionParameterType + ", got " + expressionType.lexeme);
                 }
             }
 
