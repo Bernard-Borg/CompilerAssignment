@@ -723,6 +723,9 @@ public class Parser {
      * @return ASTFunctionDeclaration node
      */
     private ASTFunctionDeclaration parseFunctionDeclaration() throws Exception {
+        boolean isInStruct = isStruct;
+        isStruct = false;
+
         Type returnType = parseType(false, false);
 
         assertToken(TokenType.IDENTIFIER);
@@ -745,6 +748,9 @@ public class Parser {
         assertToken(TokenType.CLOSEROUNDBRACKET);
 
         ASTBlock functionBlock = parseBlock();
+
+        isStruct = isInStruct;
+
         return new ASTFunctionDeclaration(returnType, functionName, parameterList, functionBlock);
     }
 
@@ -835,7 +841,7 @@ public class Parser {
             lookaheadUsed = true;
         } else if (isLookahead(TokenType.IDENTIFIER)) {
             if (checkIfStruct && isStruct) {
-                throwException("Can not have complex type here");
+                throwException("Can not have complex type");
             }
 
             if (definedStructs.contains(((Word) lookahead).lexeme)) {
