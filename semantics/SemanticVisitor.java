@@ -626,6 +626,8 @@ public class SemanticVisitor implements ASTVisitor {
             typeToReturn = Type.STRING;
         } else if (checkSymmetrical("char", "string", type1, type2)) {
             typeToReturn = Type.STRING;
+        } else if (checkSymmetrical("bool", "string", type1, type2)) {
+            typeToReturn = Type.STRING;
         } else if (checkBoth("int", type1, type2)) {
             typeToReturn = Type.INTEGER;
         } else if (checkBoth("float", type1, type2)) {

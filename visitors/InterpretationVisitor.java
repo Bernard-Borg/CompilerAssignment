@@ -12,9 +12,13 @@ public class InterpretationVisitor implements ASTVisitor {
     private VariableSymbolTable variableSymbolTable;
     private FunctionSymbolTable functionSymbolTable;
     private final ASTProgram program;
+
     private Type expressionType = null;
     private Object expressionValue = null;
+
     private boolean hasReturn = false;
+    private boolean hasReturned = false;
+
     private Type returnTypeOfCurrentFunction = null;
     private String identifierOfCurrentFunction = "";
 
@@ -175,6 +179,10 @@ public class InterpretationVisitor implements ASTVisitor {
                 hasReturn = true;
             }
 
+            if (hasReturned) {
+                break;
+            }
+
             visit(statement);
         }
 
@@ -203,6 +211,10 @@ public class InterpretationVisitor implements ASTVisitor {
             }
 
             visit(astFor.loopedBlock);
+
+            if (hasReturned) {
+                break;
+            }
 
             if (astFor.assignment != null) {
                 visit(astFor.assignment);
@@ -275,6 +287,8 @@ public class InterpretationVisitor implements ASTVisitor {
         if ("float".equals(returnTypeOfCurrentFunction.lexeme) && "int".equals(expressionType.lexeme)) {
             expressionValue = ((Integer) expressionValue).floatValue();
         }
+
+        hasReturned = true;
     }
 
     /**
@@ -360,6 +374,10 @@ public class InterpretationVisitor implements ASTVisitor {
     @Override
     public void visit(ASTWhile astWhile) throws Exception {
         while (true) {
+            if (hasReturned) {
+                break;
+            }
+
             visit(astWhile.conditionExpression);
 
             //If value of condition is false, stop loop
@@ -369,8 +387,6 @@ public class InterpretationVisitor implements ASTVisitor {
 
             visit(astWhile.loopedBlock);
         }
-
-        visit(astWhile.loopedBlock);
     }
 
     /**
@@ -526,7 +542,10 @@ public class InterpretationVisitor implements ASTVisitor {
         } else if (checkSymmetrical("char", "string", type1, type2)) {
             typeToReturn = Type.STRING;
             expressionValue = value1.toString() + value2.toString();
-        } if (checkBoth("int", type1, type2)) {
+        } else if (checkSymmetrical("bool", "string", type1, type2)) {
+            typeToReturn = Type.STRING;
+            expressionValue = value1.toString() + value2.toString();
+        } else if (checkBoth("int", type1, type2)) {
             typeToReturn = Type.INTEGER;
             expressionValue = (Integer) value1 + (Integer) value2;
         } else if (checkBoth("float", type1, type2)) {
@@ -757,7 +776,11 @@ public class InterpretationVisitor implements ASTVisitor {
         identifierOfCurrentFunction = stringBuilder.toString();
         returnTypeOfCurrentFunction = declaredFunction.returnType;
 
+        hasReturned = false;
+
         visit(declaredFunction.functionBlock);
+
+        hasReturned = false;
 
         identifierOfCurrentFunction = "";
         returnTypeOfCurrentFunction = previousReturnType;

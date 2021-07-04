@@ -28,7 +28,7 @@ public class Main {
                 throw new Exception ("You need to pass a file path to a file in the same directory as the jar file");
             }*/
 
-            String sourcePath = "./testingfile.tlang";
+            String sourcePath = "./testfile2.tlang";
             lexer = new Lexer(sourcePath);
 
             parser = new Parser(lexer);
