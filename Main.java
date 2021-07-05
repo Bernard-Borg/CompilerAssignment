@@ -28,11 +28,10 @@ public class Main {
                 throw new Exception ("You need to pass a file path to a file in the same directory as the jar file");
             }*/
 
-            compile("./program2.tlang");
+            compile("./testfile7.tlang");
         } catch (FileNotFoundException e) {
             System.out.println("No file found");
         } catch (Exception e) {
-            e.printStackTrace();
             System.err.println(e.getMessage());
         }
     }

@@ -148,7 +148,7 @@ public class SemanticVisitor implements ASTVisitor {
                         (This would be done here)
                      */
                     if (!expressionType.lexeme.equals(type.lexeme)) {
-                        throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                        throwException("Cannot assign expression of type " + expressionType.lexeme + " to a variable of type " + type.lexeme + " (" + astAssignment.identifier.identifier + ")");
                     }
                 }
             } else {
@@ -189,7 +189,7 @@ public class SemanticVisitor implements ASTVisitor {
                 } else {
                     if (!type.lexeme.equals(expressionType.lexeme)) {
                         if (!("int".equals(expressionType.lexeme) && "float".equals(type.lexeme))) {
-                            throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme);
+                            throwException("Cannot assign an expression with type " + expressionType.lexeme + " to a variable of type " + type.lexeme + " (" + astAssignment.identifier.identifier + ")");
                         }
                     }
                 }
@@ -763,7 +763,7 @@ public class SemanticVisitor implements ASTVisitor {
             expressionType = declaredFunction.returnType;
         } else {
             //If declaredFunction is null, then the function has not been declared
-            throwException("Cannot resolve function " + astFunctionCall.identifier.identifier);
+            throwException("Cannot resolve function " + stringBuilder.toString());
         }
     }
 
@@ -1000,22 +1000,7 @@ public class SemanticVisitor implements ASTVisitor {
             expressionType = declaredFunction.returnType;
         } else {
             //If declaredFunction is null, then the function has not been declared
-            throwException("Cannot resolve function " + astStructFunctionSelector.functionCall.identifier.identifier);
+            throwException("Cannot resolve function " + stringBuilder.toString());
         }
-
-        /*//Set current scope to only the struct scope
-        VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
-        FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
-
-        variableSymbolTable = struct.variableSymbolTable;
-        functionSymbolTable = struct.functionSymbolTable;
-
-        visit(astStructFunctionSelector.functionCall);
-
-        struct.variableSymbolTable = variableSymbolTable;
-        struct.functionSymbolTable = functionSymbolTable;
-
-        variableSymbolTable = oldVariableSymbolTable;
-        functionSymbolTable = oldFunctionSymbolTable;*/
     }
 }
