@@ -116,7 +116,7 @@ public class InterpretationVisitor implements ASTVisitor {
             TypeValuePair typeValuePair = variableSymbolTable.lookup(astAssignment.identifier.identifier);
 
             if (typeValuePair.value == null) {
-                throw new Exception ("Array " + astAssignment.identifier.identifier + " has not been initialised");
+                throw new NullPointerException ("Array " + astAssignment.identifier.identifier + " has not been initialised");
             } else {
                 visit(((ASTArrayIndexIdentifier) astAssignment.identifier).index);
                 int index = (Integer) expressionValue;
@@ -803,7 +803,7 @@ public class InterpretationVisitor implements ASTVisitor {
         if (variable.value != null) {
             expressionValue = variable.value;
         } else {
-            throw new Exception ("Variable " + astIdentifier.identifier + " has not been initialised");
+            throw new NullPointerException ("Variable " + astIdentifier.identifier + " has not been initialised");
         }
     }
 
@@ -826,7 +826,7 @@ public class InterpretationVisitor implements ASTVisitor {
                 throw new NullPointerException ("Array " + astArrayIndexIdentifier.identifier + " index " + index + " is undefined");
             }
         } else {
-            throw new Exception ("Array " + astArrayIndexIdentifier.identifier + " has not been initialised");
+            throw new NullPointerException ("Array " + astArrayIndexIdentifier.identifier + " has not been initialised");
         }
     }
 

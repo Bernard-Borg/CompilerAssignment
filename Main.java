@@ -28,7 +28,7 @@ public class Main {
                 throw new Exception ("You need to pass a file path to a file in the same directory as the jar file");
             }*/
 
-            compile("./testfile7.tlang");
+            compile("./testfile3.tlang");
         } catch (FileNotFoundException e) {
             System.out.println("No file found");
         } catch (Exception e) {
@@ -44,7 +44,6 @@ public class Main {
         Parser parser = new Parser(lexer);
 
         ASTProgram abstractSyntaxTree = parser.parseProgram();
-        System.out.println("Parsed successfully");
 
         XMLVisitor xmlVisitor = new XMLVisitor(abstractSyntaxTree);
 
