@@ -967,7 +967,43 @@ public class SemanticVisitor implements ASTVisitor {
             throwException(type.lexeme + " is not a struct type");
         }
 
-        //Set current scope to only the struct scope
+        StringBuilder stringBuilder = new StringBuilder(astStructFunctionSelector.functionCall.identifier.identifier);
+
+        /*
+            Need to loop again to get the types
+            (to create the identifier, since it needs to contain the types due to function overloading)
+        */
+        for (ASTExpression expression : astStructFunctionSelector.functionCall.parameters) {
+            visit(expression);
+            stringBuilder.append(expressionType.lexeme);
+        }
+
+        ASTFunctionDeclaration declaredFunction = struct.functionSymbolTable.lookup(stringBuilder.toString());
+
+        if (declaredFunction != null) {
+            if (declaredFunction.parameterList.size() != astStructFunctionSelector.functionCall.parameters.size()) {
+                throwException("Number of parameters not equal");
+            }
+
+            String declaredFunctionParameterType;
+
+            for (int i = 0; i < declaredFunction.parameterList.size(); i++) {
+                visit(astStructFunctionSelector.functionCall.parameters.get(i));
+
+                declaredFunctionParameterType = declaredFunction.parameterList.get(i).type.lexeme;
+
+                if (!expressionType.lexeme.equals(declaredFunctionParameterType)) {
+                    throwException("Incorrect parameter type, required " + declaredFunctionParameterType + ", got " + expressionType.lexeme);
+                }
+            }
+
+            expressionType = declaredFunction.returnType;
+        } else {
+            //If declaredFunction is null, then the function has not been declared
+            throwException("Cannot resolve function " + astStructFunctionSelector.functionCall.identifier.identifier);
+        }
+
+        /*//Set current scope to only the struct scope
         VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
         FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
 
@@ -980,6 +1016,6 @@ public class SemanticVisitor implements ASTVisitor {
         struct.functionSymbolTable = functionSymbolTable;
 
         variableSymbolTable = oldVariableSymbolTable;
-        functionSymbolTable = oldFunctionSymbolTable;
+        functionSymbolTable = oldFunctionSymbolTable;*/
     }
 }

@@ -772,6 +772,7 @@ public class InterpretationVisitor implements ASTVisitor {
         if another function with a different return type is called, the return type of the current function
         would switch to that return type - therefore this allows functions to be called inside other functions*/
         Type previousReturnType = returnTypeOfCurrentFunction;
+        String previousIdentifier = identifierOfCurrentFunction;
 
         identifierOfCurrentFunction = stringBuilder.toString();
         returnTypeOfCurrentFunction = declaredFunction.returnType;
@@ -782,7 +783,7 @@ public class InterpretationVisitor implements ASTVisitor {
 
         hasReturned = false;
 
-        identifierOfCurrentFunction = "";
+        identifierOfCurrentFunction = previousIdentifier;
         returnTypeOfCurrentFunction = previousReturnType;
         expressionType = declaredFunction.returnType;
         variableSymbolTable.pop();
@@ -974,19 +975,57 @@ public class InterpretationVisitor implements ASTVisitor {
         //Get struct
         ASTStruct struct = (ASTStruct) typeValuePair.value;
 
-        //Set current scope to only the struct scope
+        //The rest is similar to the function call visitor
+        StringBuilder stringBuilder = new StringBuilder(astStructFunctionSelector.functionCall.identifier.identifier);
+
+        for (ASTExpression expression : astStructFunctionSelector.functionCall.parameters) {
+            visit(expression);
+            stringBuilder.append(expressionType.lexeme);
+        }
+
+        ASTFunctionDeclaration declaredFunction = struct.functionSymbolTable.lookup(stringBuilder.toString());
+
+        struct.variableSymbolTable.push();
+
+        for (int i = 0; i < declaredFunction.parameterList.size(); i++) {
+            visit(astStructFunctionSelector.functionCall.parameters.get(i));
+
+            if ("int".equals(expressionType.lexeme) && "float".equals(declaredFunction.parameterList.get(i).type.lexeme)) {
+                expressionValue = ((Integer) expressionValue).floatValue();
+                expressionType = Type.FLOAT;
+            }
+
+            struct.variableSymbolTable.insert(declaredFunction.parameterList.get(i).identifier.identifier, expressionType, expressionValue);
+        }
+
+        Type previousReturnType = returnTypeOfCurrentFunction;
+        String previousIdentifier = identifierOfCurrentFunction;
+
+        identifierOfCurrentFunction = stringBuilder.toString();
+        returnTypeOfCurrentFunction = declaredFunction.returnType;
+
+        hasReturned = false;
+
+        //The function block requires the scope of the struct, not the calling scope
         VariableSymbolTable oldVariableSymbolTable = variableSymbolTable;
         FunctionSymbolTable oldFunctionSymbolTable = functionSymbolTable;
 
         variableSymbolTable = struct.variableSymbolTable;
         functionSymbolTable = struct.functionSymbolTable;
 
-        visit(astStructFunctionSelector.functionCall);
+        visit(declaredFunction.functionBlock);
 
         struct.variableSymbolTable = variableSymbolTable;
         struct.functionSymbolTable = functionSymbolTable;
 
         variableSymbolTable = oldVariableSymbolTable;
         functionSymbolTable = oldFunctionSymbolTable;
+
+        hasReturned = false;
+
+        identifierOfCurrentFunction = previousIdentifier;
+        returnTypeOfCurrentFunction = previousReturnType;
+        expressionType = declaredFunction.returnType;
+        struct.variableSymbolTable.pop();
     }
 }

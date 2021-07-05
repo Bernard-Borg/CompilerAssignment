@@ -28,7 +28,7 @@ public class Main {
                 throw new Exception ("You need to pass a file path to a file in the same directory as the jar file");
             }*/
 
-            compile("./testfile5.tlang");
+            compile("./program2.tlang");
         } catch (FileNotFoundException e) {
             System.out.println("No file found");
         } catch (Exception e) {
