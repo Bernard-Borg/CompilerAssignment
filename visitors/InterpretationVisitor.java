@@ -265,7 +265,7 @@ public class InterpretationVisitor implements ASTVisitor {
         visit(astPrint.expression);
 
         if (expressionType instanceof Array) {
-            System.out.println(Arrays.toString((Object[]) expressionValue));
+            System.out.println(Arrays.deepToString((Object[]) expressionValue));
         } else {
             System.out.println(expressionValue.toString());
         }
